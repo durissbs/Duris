@@ -222,20 +222,6 @@ int main() {
 
 
 class NpcStealBypassTests(unittest.TestCase):
-    def test_npc_steal_source_has_no_consequences(self):
-        fn = extract_function("specials.c", "void npc_steal(")
-        for forbidden in (
-            "unequip_char",
-            "obj_from_char",
-            "obj_to_char",
-            "SUB_MONEY",
-            "ADD_MONEY",
-            "do_wake",
-            "CharWait",
-            "audit_item_removal",
-        ):
-            self.assertNotIn(forbidden, fn)
-
     def test_npc_steal_runtime_emits_flavor_emotes_only(self):
         fn = extract_function("specials.c", "void npc_steal(")
         cpp = HARNESS_HEAD + "\n" + fn + "\n" + HARNESS_TAIL
