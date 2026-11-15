@@ -10,8 +10,9 @@ Bleeder> score
 Bleeder? Current task: .*spill enemy blood
 
 Spillstaff> setbit char Bleeder hit 5
-Spiller> kill orc
-until Spiller /is dead!/ max 100 look
+# A round lands about one unarmed blow in 4.5 seconds, and a fumble can end the
+# fight, so keep ordering the attack ("already fighting" is harmless) for minutes.
+until Spiller /is dead!/ max 400 kill orc
 Bleeder? You just lost [0-9.]+ frags![\s\S]*very pleased with YOUR &?\+?R?blood
 
 login Bleeder
