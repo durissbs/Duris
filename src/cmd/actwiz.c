@@ -7317,7 +7317,6 @@ static bool staff_name_matches(const char *pattern, const char *keywords, const 
 void do_lookup(P_char ch, char *argument, int /*cmd*/)
 {
 	FILE *fp;
-	char *irc;
 	char arg[MAX_STRING_LENGTH], pattern[MAX_INPUT_LENGTH];
 	char buf[MAX_STRING_LENGTH], file[MAX_INPUT_LENGTH];
 	char o_buf[MAX_STRING_LENGTH];
@@ -7335,13 +7334,15 @@ void do_lookup(P_char ch, char *argument, int /*cmd*/)
 		send_to_char("Syntax : lookup <room | zone | mob | obj | random> <pattern>\n", ch);
 		return;
 	}
-	if (strncasecmp(arg, "random", 1) == 0)
+	if (strncasecmp(arg, "random", 2) == 0)
 	{
 		if (strncasecmp(pattern, "zone", 1) == 0 && GET_LEVEL(ch) >= FORGER)
 		{
 			display_random_zones(ch);
 			return;
 		}
+		send_to_char("Syntax : lookup <room | zone | mob | obj> <pattern>\n", ch);
+		return;
 	}
 	if (strncasecmp(arg, "mob", 1) == 0 || strncasecmp(arg, "char", 1) == 0 ||
 	    strncasecmp(arg, "obj", 1) == 0)
@@ -7404,9 +7405,8 @@ void do_lookup(P_char ch, char *argument, int /*cmd*/)
 		   is in the line.  If so, pass it to the user. */
 		found = 0;
 		length = 0;
-		do
+		while (fgets(buf, MAX_STRING_LENGTH - 1, fp))
 		{
-			irc = fgets(buf, MAX_STRING_LENGTH - 1, fp);
 			strcpy(arg, buf);
 			strcpy(buf, strip_ansi(buf).c_str());
 			strToLower(buf);
@@ -7416,16 +7416,12 @@ void do_lookup(P_char ch, char *argument, int /*cmd*/)
 				if ((length + strlen(arg) + 40) > MAX_STRING_LENGTH)
 				{
 					strcat(o_buf, "...and the list goes on...\n");
-					irc = NULL;
+					break;
 				}
-				else
-				{
-					length += strlen(arg) + 1;
-					strcat(o_buf, arg);
-					strcat(o_buf, "");
-				}
+				length += strlen(arg) + 1;
+				strcat(o_buf, arg);
 			}
-		} while (irc != NULL);
+		}
 
 		fclose(fp);
 
