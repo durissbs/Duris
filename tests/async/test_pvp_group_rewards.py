@@ -48,6 +48,9 @@ static unsigned rolled_back;
 static float frag_epic_amount = 250;
 static affected_type spill_blood_task;
 static P_char spill_blood_player;
+static affected_type added_affect;
+static P_char added_to;
+static unsigned affects_added, tasks_removed;
 
 const char *get_account_name_safe(P_char) { return "fixture"; }
 const char *get_class_name(P_char, P_char) { return "Fixture"; }
@@ -78,6 +81,18 @@ bool artifact_guild_transaction_submit(P_char, const critical_operation_id &, in
     return true;
 }
 void logit(const char *, const char *, ...) {}
+void send_to_char(const char *, P_char) {}
+affected_type *affect_to_char(P_char ch, affected_type *af) {
+    added_to = ch;
+    added_affect = *af;
+    ++affects_added;
+    return &added_affect;
+}
+void affect_remove(P_char ch, affected_type *af) {
+    assert(ch == spill_blood_player && af == &spill_blood_task);
+    spill_blood_player = nullptr;
+    ++tasks_removed;
+}
 [[noreturn]] int panic_corruption_int(const char *, const char *, ...) { std::abort(); }
 int GET_CLASS(P_char ch, uint cls) { return (ch->player.m_class & cls) != 0; }
 uint64_t gameplay_read_state_add_provisional(gameplay_read_state *, int64_t) { return 1; }
@@ -103,7 +118,8 @@ bool combat_outcome_transaction_submit(const combat_outcome_payload &payload,
 
 CASES = r'''
 static void reset() {
-    submissions = rolled_back = 0;
+    submissions = rolled_back = affects_added = tasks_removed = 0;
+    added_to = nullptr;
     boons = {};
     accept_submission = true;
     frag_epic_amount = 250;
@@ -286,6 +302,48 @@ int main() {
             assert(entry(killer).frag_delta == 12 && !entry(killer).epic_delta);
         }
     }
+    // The victim dies, saves and leaves before the completion runs, so an
+    // admitted loss applies its tag and Spill Blood completion at submission.
+    reset();
+    spill_blood_player = victim;
+    assert(submit_pvp_outcome(killer, victim, true));
+    assert(entry(victim).frag_delta == -100);
+    assert(entry(victim).flags & COMBAT_PARTICIPANT_SPILL_BLOOD);
+    assert(!entry(victim).epic_delta);
+    assert(tasks_removed == 1 && !spill_blood_player);
+    assert(affects_added == 1 && added_to == victim);
+    assert(added_affect.type == TAG_RECENTLY_FRAGGED);
+    assert(added_affect.duration == 60 * WAIT_SEC);
+    // The death wipe keeps only AFFTYPE_PERM; the tag counts down offline.
+    assert(added_affect.flags & AFFTYPE_PERM);
+    assert(added_affect.flags & AFFTYPE_OFFLINE && added_affect.flags & AFFTYPE_SHORT);
+
+    // Below the killer's epic threshold the victim still completes the task.
+    reset();
+    for (int i = 2; i <= 4; ++i) {
+        characters[i].specials.act = 0;
+        characters[i].only.pc = &pcs[i];
+        characters[i].next_in_room = rooms[0].people;
+        rooms[0].people = &characters[i];
+    }
+    killer->player.level = 31;
+    spill_blood_player = victim;
+    assert(submit_pvp_outcome(killer, victim, true));
+    assert(entry(killer).frag_delta == 12);
+    assert(!entry(killer).epic_delta && !entry(victim).epic_delta);
+    assert(tasks_removed == 1 && affects_added == 1);
+
+    // A refused admission or a non-fraggable death applies neither effect.
+    reset();
+    spill_blood_player = victim;
+    accept_submission = false;
+    assert(!submit_pvp_outcome(killer, victim, true));
+    assert(!tasks_removed && !affects_added && spill_blood_player == victim);
+    accept_submission = true;
+    assert(submit_pvp_outcome(killer, victim, false));
+    assert(!tasks_removed && !affects_added && spill_blood_player == victim);
+
+    puts("PvP victim loss: tag and Spill Blood applied before the death save passed");
     puts("PvP player/pet groups: capture, shares, epics, blood money and refusals passed");
     puts("PvP 250/500 tuning: five reward examples, threshold, bonuses and Spill Blood passed");
 }
