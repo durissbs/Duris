@@ -21053,6 +21053,21 @@ std::string resurrect_facts(P_char ch)
 	return fact("Your lag", seconds(resurrect_lag(ch, GET_LEVEL(ch))));
 }
 
+// Credit a corpse's coin pile to the wallet. ADD_MONEY takes an int, so a pile worth
+// more stays with the character as a pile instead of being destroyed.
+static void resurrect_coin_pile(P_char ch, P_obj pile)
+{
+	const long long value = pile->value[0] + 10LL * pile->value[1] + 100LL * pile->value[2] +
+				1000LL * pile->value[3];
+	if (value > INT_MAX)
+	{
+		obj_to_char(pile, ch);
+		return;
+	}
+	ADD_MONEY(ch, static_cast<int>(value));
+	extract_obj(pile);
+}
+
 bool resurrect_corpse(int level, P_char ch, P_obj obj)
 {
 	bool loss_flag = FALSE;
@@ -21260,10 +21275,7 @@ bool resurrect_corpse(int level, P_char ch, P_obj obj)
 		obj_from_obj(obj_in_corpse);
 		if (obj_in_corpse->type == ITEM_MONEY)
 		{
-			ADD_MONEY(t_ch, obj_in_corpse->value[0] + obj_in_corpse->value[1] * 10 +
-						obj_in_corpse->value[2] * 100 +
-						obj_in_corpse->value[3] * 1000);
-			extract_obj(obj_in_corpse);
+			resurrect_coin_pile(t_ch, obj_in_corpse);
 			obj_in_corpse = NULL;
 		}
 		else
@@ -21696,10 +21708,7 @@ void spell_lesser_resurrect(int level, P_char ch, char * /*arg*/, [[maybe_unused
 		obj_from_obj(obj_in_corpse);
 		if (obj_in_corpse->type == ITEM_MONEY)
 		{
-			ADD_MONEY(t_ch, obj_in_corpse->value[0] + obj_in_corpse->value[1] * 10 +
-						obj_in_corpse->value[2] * 100 +
-						obj_in_corpse->value[3] * 1000);
-			extract_obj(obj_in_corpse);
+			resurrect_coin_pile(t_ch, obj_in_corpse);
 			obj_in_corpse = NULL;
 		}
 		else
