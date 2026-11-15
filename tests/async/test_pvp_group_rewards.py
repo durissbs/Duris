@@ -22,6 +22,7 @@ PRELUDE = r'''
 #include "economy/divine_boon_math.h"
 #include "economy/nexus_stones.h"
 #include "world/epic_bonus.h"
+#include "economy/boon.h"
 #include <cmath>
 #include <limits>
 #include <algorithm>
@@ -82,6 +83,12 @@ bool artifact_guild_transaction_submit(P_char, const critical_operation_id &, in
 }
 void logit(const char *, const char *, ...) {}
 void send_to_char(const char *, P_char) {}
+void send_to_char(const char *, P_char, int) {}
+char *coin_stringv(int, int = 0) { return const_cast<char *>(""); }
+void affect_from_char(P_char, int) {}
+void epic_publish_pvp_award(P_char, int) {}
+void check_boon_completion(P_char, P_char, double, int) {}
+void illithid_advance_level(P_char) {}
 affected_type *affect_to_char(P_char ch, affected_type *af) {
     added_to = ch;
     added_affect = *af;
@@ -97,12 +104,10 @@ void affect_remove(P_char ch, affected_type *af) {
 int GET_CLASS(P_char ch, uint cls) { return (ch->player.m_class & cls) != 0; }
 uint64_t gameplay_read_state_add_provisional(gameplay_read_state *, int64_t) { return 1; }
 bool gameplay_read_state_finish_provisional(gameplay_read_state *, uint64_t, bool committed) {
-    assert(!committed);
-    ++rolled_back;
+    if (!committed)
+        ++rolled_back;
     return true;
 }
-static void combat_outcome_committed(bool, const combat_outcome_result &, unsigned int,
-                                     const combat_outcome_payload &) {}
 bool combat_outcome_transaction_submit(const combat_outcome_payload &payload,
                                        combat_outcome_completion_fn,
                                        critical_operation_id *) {
@@ -317,6 +322,7 @@ int main() {
     // The death wipe keeps only AFFTYPE_PERM; the tag counts down offline.
     assert(added_affect.flags & AFFTYPE_PERM);
     assert(added_affect.flags & AFFTYPE_OFFLINE && added_affect.flags & AFFTYPE_SHORT);
+    const combat_outcome_payload qualifying = captured;
 
     // Below the killer's epic threshold the victim still completes the task.
     reset();
@@ -343,6 +349,19 @@ int main() {
     assert(submit_pvp_outcome(killer, victim, false));
     assert(!tasks_removed && !affects_added && spill_blood_player == victim);
 
+    // The completion runs later: with the victim gone, or back in the game with
+    // a newly assigned task. Either way it leaves the victim alone.
+    const combat_outcome_result result = {};
+    for (const bool back_in_game : {false, true}) {
+        affects_added = tasks_removed = 0;
+        spill_blood_player = victim;
+        victim->only.pc->pid = back_in_game ? 2 : 99;
+        combat_outcome_committed(true, result, 0, qualifying);
+        assert(!tasks_removed && spill_blood_player == victim);
+        assert(added_to != victim);
+    }
+    victim->only.pc->pid = 2;
+
     puts("PvP victim loss: tag and Spill Blood applied before the death save passed");
     puts("PvP player/pet groups: capture, shares, epics, blood money and refusals passed");
     puts("PvP 250/500 tuning: five reward examples, threshold, bonuses and Spill Blood passed");
@@ -357,6 +376,7 @@ def main():
         ("epic.c", "int epic_calculate_pvp_award("),
         ("epic.c", "bool epic_prepare_pvp_award("),
         ("fight.c", "static combat_outcome_participant *combat_outcome_add_participant("),
+        ("fight.c", "static void combat_outcome_committed("),
         ("fight.c", "static bool submit_pvp_outcome("),
     ):
         harness += extract_function(file, signature) + "\n"
