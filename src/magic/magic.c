@@ -21058,7 +21058,7 @@ bool resurrect_corpse(int level, P_char ch, P_obj obj)
 	bool loss_flag = FALSE;
 	int l, found;
 	long resu_exp;
-	P_obj obj_in_corpse, next_obj, t_obj, money;
+	P_obj obj_in_corpse, next_obj, t_obj;
 	struct affected_type *af, *next_af;
 	P_char t_ch;
 
@@ -21205,17 +21205,14 @@ bool resurrect_corpse(int level, P_char ch, P_obj obj)
 			}
 		}
 
-		if (GET_MONEY(t_ch) > 0)
-		{
-			/*
-			 * make a 'pile of coins' object to hold victim's cash
-			 */
+		// Take the coins before making the pile, so a refused or oversized
+		// subtraction leaves them with the victim instead of copying them.
+		const int copper = GET_COPPER(t_ch), silver = GET_SILVER(t_ch),
+			  gold = GET_GOLD(t_ch), platinum = GET_PLATINUM(t_ch);
+		const long long wallet = GET_MONEY(t_ch);
+		if (wallet > 0 && wallet <= INT_MAX && SUB_MONEY(t_ch, (int)wallet, 0) == 0)
+			obj_to_room(create_money(copper, silver, gold, platinum), t_ch->in_room);
 
-			money = create_money(GET_COPPER(t_ch), GET_SILVER(t_ch), GET_GOLD(t_ch),
-					     GET_PLATINUM(t_ch));
-			SUB_MONEY(t_ch, GET_MONEY(t_ch), 0);
-			obj_to_room(money, t_ch->in_room);
-		}
 		for (t_obj = t_ch->carrying; t_obj != NULL; t_obj = next_obj)
 		{
 			next_obj = t_obj->next_content;
@@ -21472,7 +21469,7 @@ void spell_lesser_resurrect(int level, P_char ch, char * /*arg*/, [[maybe_unused
 {
 	bool loss_flag = FALSE;
 	int chance, l, found, ss_roll;
-	P_obj obj_in_corpse, next_obj, t_obj, money;
+	P_obj obj_in_corpse, next_obj, t_obj;
 	struct affected_type *af, *next_af;
 	P_char t_ch;
 
@@ -21641,17 +21638,14 @@ void spell_lesser_resurrect(int level, P_char ch, char * /*arg*/, [[maybe_unused
 				affect_remove(t_ch, af);
 		}
 
-		if (GET_MONEY(t_ch) > 0)
-		{
-			/*
-			 * make a 'pile of coins' object to hold victim's cash
-			 */
+		// Take the coins before making the pile, so a refused or oversized
+		// subtraction leaves them with the victim instead of copying them.
+		const int copper = GET_COPPER(t_ch), silver = GET_SILVER(t_ch),
+			  gold = GET_GOLD(t_ch), platinum = GET_PLATINUM(t_ch);
+		const long long wallet = GET_MONEY(t_ch);
+		if (wallet > 0 && wallet <= INT_MAX && SUB_MONEY(t_ch, (int)wallet, 0) == 0)
+			obj_to_room(create_money(copper, silver, gold, platinum), t_ch->in_room);
 
-			money = create_money(GET_COPPER(t_ch), GET_SILVER(t_ch), GET_GOLD(t_ch),
-					     GET_PLATINUM(t_ch));
-			SUB_MONEY(t_ch, GET_MONEY(t_ch), 0);
-			obj_to_room(money, t_ch->in_room);
-		}
 		for (t_obj = t_ch->carrying; t_obj != NULL; t_obj = next_obj)
 		{
 			next_obj = t_obj->next_content;
