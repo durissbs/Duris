@@ -99,7 +99,7 @@ PH 0 0 -1
                 f"UPDATE player_items SET equip_slot=7 WHERE obj_uid={BAIT_UID}")
         rig.boot("--minimal")
         client = journey.reconnect_character(rig.port)
-        client.expect(r"(?:tried to steal something from you|hands in your wallet)", timeout=150)
+        client.expect_any(("tried to steal something from you", "hands in your wallet"), timeout=150)
         quit_character()
         assert rig.sql(f"SELECT pid FROM player_items WHERE obj_uid={BAIT_UID}") == pid
         assert rig.sql(f"SELECT pid FROM player_items WHERE obj_uid={HEAVY_UID}") == pid
