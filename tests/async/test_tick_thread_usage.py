@@ -23,6 +23,7 @@ HARNESS = r'''
 #include <cstdio>
 #include <cstring>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 static void report(const char *name, const latency_trace_thread_usage *begin)
@@ -36,11 +37,18 @@ int main()
 {
 	latency_trace_thread_usage begin;
 
+	// Spin for 100 ms of this thread's CPU time, not wall time, so preemption on a
+	// busy host only lengthens the loop and cannot shrink the reported CPU.
 	latency_trace_thread_usage_now(&begin);
-	const uint64_t until = latency_trace_monotonic_us() + 100000;
+	timespec cpu = {};
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu);
+	const long long until = cpu.tv_sec * 1000000LL + cpu.tv_nsec / 1000 + 100000;
 	volatile unsigned long spin = 0;
-	while (latency_trace_monotonic_us() < until)
+	do
+	{
 		spin = spin + 1;
+		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu);
+	} while (cpu.tv_sec * 1000000LL + cpu.tv_nsec / 1000 < until);
 	report("busy", &begin);
 
 	latency_trace_thread_usage_now(&begin);
@@ -78,7 +86,7 @@ pattern = re.compile(r" thread_cpu_us=(\S+) majflt=(\S+) minflt=(\S+) vcsw=(\S+)
 fields = {name: pattern.search(line).groups() for name, line in lines.items()}
 
 busy_cpu = int(fields["busy"][0])
-assert busy_cpu >= 60_000, lines["busy"]  # most of a 100 ms spin is CPU, even on a busy host
+assert busy_cpu >= 100_000, lines["busy"]  # the whole 100 ms CPU spin is reported
 
 sleep_cpu, _, _, sleep_vcsw, _ = fields["sleep"]
 assert int(sleep_cpu) < 50_000 and int(sleep_vcsw) >= 1, lines["sleep"]  # waited, not computed
