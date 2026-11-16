@@ -8,7 +8,8 @@ players.
 
 Runs the production sql_load_guild() against the full disposable schema: a stale saved
 total is replaced by the members' frags, a member saved before rosters kept pids is
-matched by name, a non-member is not counted, and an empty guild has no top fragger.
+matched by name, a non-member or a listed enemy is not counted, and a guild with no
+members has no top fragger.
 """
 
 import os
@@ -91,14 +92,22 @@ int main()
 				  required_env("DB_PASSWD"), required_env("DB_NAME"),
 				  port ? std::strtoul(port, nullptr, 10) : 3306, nullptr, 0));
 	execute("INSERT INTO player_data (pid, name, frags) VALUES "
-		"(1, 'Alpha', 500), (2, 'Beta', -200), (3, 'Gamma', 50), (4, 'Delta', 100)");
+		"(1, 'Alpha', 500), (2, 'Beta', -200), (3, 'Gamma', 50), (4, 'Delta', 100), "
+		"(5, 'Foe', 900)");
 	execute("INSERT INTO guilds (id, name, frags, top_frags, topfragger) VALUES "
 		"(7, 'Stale', 9999, 9999, 'Ghost'), (8, 'Empty', 12, 12, 'Ghost')");
-	execute("INSERT INTO guild_members (guild_id, player_name, player_pid, bits) VALUES "
-		"(7, 'Alpha', 1, 0), (7, 'Beta', 2, 0), (7, 'Delta', NULL, 0)");
+	// The roster lists members and the guild's enemies; only members count.
+	char roster[512];
+	const unsigned int member = A_SF2 | A_NORMAL, enemy = A_ENEMY;
+	std::snprintf(roster, sizeof roster,
+		      "INSERT INTO guild_members (guild_id, player_name, player_pid, bits) VALUES "
+		      "(7, 'Alpha', 1, %u), (7, 'Beta', 2, %u), (7, 'Delta', NULL, %u), "
+		      "(7, 'Foe', 5, %u), (8, 'Foe', 5, %u)",
+		      member, member, member, enemy, enemy);
+	execute(roster);
 
 	Guild *stale = sql_load_guild(7);
-	assert(stale && stale->get_num_members() == 3);
+	assert(stale && stale->get_num_members() == 4);
 	assert(stale->get_frags() == 400 && stale->get_top_frags() == 500 &&
 	       !std::strcmp(stale->get_top_fragger(), "Alpha"));
 	Guild *empty = sql_load_guild(8);
