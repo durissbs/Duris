@@ -51,7 +51,10 @@ def class_spells() -> dict[str, list[tuple[int, str]]]:
     spell needs a specialization the bots do not have."""
     spells: dict[str, set[tuple[int, str]]] = {}
     current = None
-    for line in (ROOT / "src/classes/skills.c").read_text(errors="replace").splitlines():
+    # Commented-out declarations are spells the class cannot cast.
+    source = (ROOT / "src/classes/skills.c").read_text(errors="replace")
+    source = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", source, flags=re.S))
+    for line in source.splitlines():
         if match := re.search(r'SPELL_CREATE\w*\(\s*"([^"]+)"', line):
             current = match[1]
         elif re.search(r"(SKILL|SONG|TAG|POISON)_CREATE", line):
