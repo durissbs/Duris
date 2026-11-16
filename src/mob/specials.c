@@ -114,6 +114,10 @@ void event_underwatersector(P_char ch, P_char /*victim*/, P_obj /*obj*/, void * 
 {
 	if (IS_AFFECTED(ch, AFF_WATERBREATH) || (ch->in_room == -1) || !IS_UNDERWATER(ch))
 	{
+		// Only someone who was holding their breath or drowning has come up for air.
+		if (ch->in_room != -1 && !IS_UNDERWATER(ch) &&
+		    (IS_AFFECTED2(ch, AFF2_HOLDING_BREATH) || IS_AFFECTED2(ch, AFF2_IS_DROWNING)))
+			send_to_char("&+BYou gasp as fresh air fills your lungs.&n\r\n", ch);
 		REMOVE_BIT(ch->specials.affected_by2, AFF2_HOLDING_BREATH);
 		REMOVE_BIT(ch->specials.affected_by2, AFF2_IS_DROWNING);
 		return;
