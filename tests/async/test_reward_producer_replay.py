@@ -280,17 +280,26 @@ int main(int argc, char **argv)
 	actors[0].player.name = const_cast<char *>("Killer");
 	actors[1].player.name = const_cast<char *>("Victim");
 	actors[0].specials.guild = &killers;
+	actors[0].specials.guild_status = A_SF2; // a member
 	actors[1].specials.guild = &victims;
-	pcs[1].frags = 300; // the victims' top fragger, counted when it joined
+	actors[1].specials.guild_status = A_SF1; // only applying, so not counted yet
+	pcs[1].frags = 300;
 	victims.set_frags(300);
-	victims.add_frags(&actors[1], 0);
 	guild_saves = 0;
 	assert(combat_outcome_transaction_submit(combat, combat_complete));
 	assert(pcs[0].epics == 4 && pcs[0].frags == 100);
 	assert(killers.get_frags() == 100 && killers.get_top_frags() == 100 &&
-	       !strcmp(killers.get_top_fragger(), "Killer"));
+	       !strcmp(killers.get_top_fragger(), "Killer") && guild_saves == 1);
+	assert(victims.get_frags() == 300 && pcs[1].frags == 200);
+	// A top fragger's loss moves the count shown for them.
+	victims.set_frags(300);
+	pcs[1].frags = 300;
+	victims.add_frags(&actors[1], 0);
+	pcs[1].frags = 200;
+	victims.add_frags(&actors[1], -100);
 	assert(victims.get_frags() == 200 && victims.get_top_frags() == 200 &&
-	       !strcmp(victims.get_top_fragger(), "Victim") && guild_saves == 2);
+	       !strcmp(victims.get_top_fragger(), "Victim"));
+	pcs[1].frags = 0;
 	actors[0].specials.guild = actors[1].specials.guild = nullptr;
 	online[1] = false;
 	zone_touch_payload stone = {};

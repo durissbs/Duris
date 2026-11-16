@@ -83,8 +83,10 @@ void apply_live(const combat_outcome_payload &payload)
 			character->only.pc->frags += entry.frag_delta;
 			++character->only.pc->frag_revision;
 			// A guild's total is its members' frags; leaving subtracts the member's
-			// frags at that time, so every change must reach the total too.
-			if (Guild *guild = GET_ASSOC(character))
+			// frags at that time, so every change must reach the total too. An
+			// applicant already points at the guild but is not counted yet.
+			Guild *guild = GET_ASSOC(character);
+			if (guild && IS_MEMBER(GET_A_BITS(character)))
 			{
 				guild->add_frags(character, entry.frag_delta);
 				guild->save();
