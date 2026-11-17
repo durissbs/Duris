@@ -126,6 +126,9 @@ The workflow replayed locally on 2026-10-09, at the tree that records this resul
 - No host Duris runs on has been scanned yet.
 - On 2026-10-08 the owner turned on, for `LuminariMUD/Duris`, private vulnerability
   reporting, Dependabot security updates, and secret scanning with push protection.
+- The repository moved to `durissbs/Duris` on 2026-11-17. Private vulnerability
+  reporting there was off on that date; turn it on, with Dependabot security updates
+  and secret scanning, so `SECURITY.md`'s reporting form works.
 - Transitive and deployment dependency vulnerability status: `UNKNOWN` by design.
 
 Security reports follow [SECURITY.md](../../SECURITY.md). Generated reports, scanner

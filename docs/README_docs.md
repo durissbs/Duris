@@ -9,7 +9,8 @@ not a flat-file persistence backend.
 Setup and first boot live in the root [README](../README.md); its Quick start is the
 onboarding path. This directory holds the development, architecture, operations,
 database, and builder references. Actionable work belongs in the
-[GitHub issue tracker](https://github.com/LuminariMUD/Duris/issues).
+[GitHub issue tracker](https://github.com/durissbs/Duris/issues). Issue and PR numbers
+through #1098 in older docs refer to `LuminariMUD/Duris`, the repository's previous home.
 `ongoing-projects/` is a temporary human workspace; permanent references must not
 depend on its files. Consolidate verified, lasting details here and preserve open
 requirements in issues before removing a temporary document.

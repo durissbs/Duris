@@ -267,7 +267,7 @@ in memory too. Ordered entity snapshots persist current state; type-9 commands
 record captured history and never apply rewards on completion. Per-entity dirty
 metadata and commit receipts distinguish unsaved state from committed history.
 Producer/restart qualification is recorded in the
-[evidence](https://github.com/LuminariMUD/Duris/blob/76262c0b71da4bf1e835228475930a966fb08310/docs/records/log-server-review.md#qualification-update-2026-10-14); the detailed
+[evidence](https://github.com/durissbs/Duris/blob/76262c0b71da4bf1e835228475930a966fb08310/docs/records/log-server-review.md#qualification-update-2026-10-14); the detailed
 contract is in [CRITICAL_COMMAND_PIPELINE.md](../persistence/CRITICAL_COMMAND_PIPELINE.md#artifact-and-guild-rewards-live-in-memory).
 
 Canonical artifact UID/state is held in the existing game-thread artifact record.

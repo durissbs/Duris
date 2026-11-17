@@ -11,7 +11,7 @@ builds, and focused validation. Intended delivery is one focused PR.
 - Delivery PR: [#599 — Add skills browser and fix effective skill grants](https://github.com/LuminariMUD/Duris/pull/599).
 - Implementation/review-fix history: [PR #599 commits](https://github.com/LuminariMUD/Duris/pull/599/commits).
 - Delivery branch: `branch/issue-598-skills-browser` (history retained on PR #599).
-- Published plan: [skills-command-browser.md](https://github.com/LuminariMUD/Duris/blob/master/docs/ongoing-projects/skills-command-browser.md).
+- Published plan: [skills-command-browser.md](https://github.com/durissbs/Duris/blob/master/docs/ongoing-projects/skills-command-browser.md).
 - Implementation workspace: `/home/aiwithapex/projects/duris-issue-598` (disposable).
 - Base branch: `master`.
 

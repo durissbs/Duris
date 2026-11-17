@@ -32,7 +32,9 @@ the boundary of the historical archive. Use recent sections for colors and layou
 but follow the concise writing guidance below even when existing entries are
 wordy. The older archive is a historical record, not a style template. Determine
 the current source repository and intended branch from
-Git remotes and GitHub metadata rather than hardcoding an owner or branch.
+Git remotes and GitHub metadata rather than hardcoding an owner or branch. The
+canonical repository is `durissbs/Duris` (see `AGENTS.md`); a remote that still
+names `LuminariMUD/Duris` is stale and may lag behind it.
 
 Identify the last **substantive coverage update**, not merely the last edit:
 

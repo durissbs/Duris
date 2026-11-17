@@ -34,7 +34,7 @@ framework would obscure those distinctions.
 
 ### What the current code actually owns
 
-The [coordinator](https://github.com/LuminariMUD/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/persistence/critical_command_coordinator.c)
+The [coordinator](https://github.com/durissbs/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/persistence/critical_command_coordinator.c)
 owns immutable commands, attempts, per-key admission fences, active worker keys,
 raw completion retention, and a bounded completed cache. `operation_state`
 expresses lifecycle through `inflight`, `completed`, `blocked`, and
@@ -47,9 +47,9 @@ The older pipeline guide's blanket claim that the pulse performs no filesystem
 work is not an accurate description of this baseline. [#341](https://github.com/LuminariMUD/Duris/issues/341)
 owns that prerequisite; do not weaken `fsync` or silently call RAM enqueue durable.
 
-The [item adapter](https://github.com/LuminariMUD/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/item/item_movement_transaction.c#L1008)
+The [item adapter](https://github.com/durissbs/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/item/item_movement_transaction.c#L1008)
 can retain a committed result when custody/creation/corpse publication is not
-ready. The [currency adapter](https://github.com/LuminariMUD/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/economy/currency_transaction.c#L144)
+ready. The [currency adapter](https://github.com/durissbs/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/economy/currency_transaction.c#L144)
 has separate completion-ready, coin-wallet-publication and retry concerns.
 Coordinator retirement is consequently not synonymous with visible gameplay
 completion, and its bounded cache is not the owner of outstanding callbacks.
@@ -130,10 +130,10 @@ journeys, including ambiguity and restart.
 
 ### Current boundary and callback inventory
 
-[`try_riposte()`](https://github.com/LuminariMUD/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/combat/fight.c#L4073)
+[`try_riposte()`](https://github.com/durissbs/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/combat/fight.c#L4073)
 already captures runtime IDs, room/height, and selected weapon slot/UID following
 #338. The important next seam is the recursive Vicious Attack path inside
-[`hit()`](https://github.com/LuminariMUD/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/combat/fight.c#L7159):
+[`hit()`](https://github.com/durissbs/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/combat/fight.c#L7159):
 it calls `hit()` and resumes calculations using actor, victim and weapon after a
 room-membership check. This is a high-value second migration target, not a newly
 proved production crash claim.
@@ -145,9 +145,9 @@ Ordinary arithmetic and read-only skill queries need not become virtual effects.
 Before changing any boundary, trace the real called implementation and annotate
 the continuation's required postconditions, not just its function name.
 
-The [existing character identity resolver](https://github.com/LuminariMUD/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/account/character_identity.c)
+The [existing character identity resolver](https://github.com/durissbs/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/account/character_identity.c)
 scans `character_list`. Runtime IDs change when storage is reused; pointer equality
-alone does not prove identity. The [item-action contract](https://github.com/LuminariMUD/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/item/item_actions.h)
+alone does not prove identity. The [item-action contract](https://github.com/durissbs/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/item/item_actions.h)
 already defines borrowed pointers as valid for one adapter call and re-resolves
 before effects. Reuse this discipline and existing identity owners, not a second
 combat-only registry or the entire deferred item-action runtime per melee hit.
@@ -215,7 +215,7 @@ is not authority to close #344.
 
 ### Preserve the observed sequence
 
-The current [`game_loop()`](https://github.com/LuminariMUD/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/net/comm.c#L1185)
+The current [`game_loop()`](https://github.com/durissbs/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/net/comm.c#L1185)
 does not run a generic input-completions-world-output sequence. Its meaningful
 normal-pulse ordering is:
 
@@ -301,7 +301,7 @@ real sessions asserting exact text order, privacy, replay and paging behavior.
 
 ### Existing vertical slice and alternatives
 
-[`actobj.c`](https://github.com/LuminariMUD/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/cmd/actobj.c)
+[`actobj.c`](https://github.com/durissbs/Duris/blob/f62b69f92f792a0ff7897c19876c6d1bb6f1c626/src/cmd/actobj.c)
 already contains get/put/drop completions, bulk selection, source-owner capture,
 coin admission, immutable transfer submission, and publication callbacks.
 `select_bulk_get_item()` and `bulk_put_permitted()` embody useful but different

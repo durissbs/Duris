@@ -322,7 +322,7 @@ an identity that survives import: the current importer deletes and reinserts
 rows, so numeric `pages.id` is not inherently a stable help identity.
 
 Source: Duris [`import_help_to_prod.sh`](../../scripts/import_help_to_prod.sh);
-DurisWeb [review and application](https://github.com/LuminariMUD/DurisWeb/blob/37344926c2873ef5afae0093467f054d5573c156/backend/src/services/helpSuggestionService.ts#L271-L361).
+DurisWeb [review and application](https://github.com/durissbs/DurisWeb/blob/37344926c2873ef5afae0093467f054d5573c156/backend/src/services/helpSuggestionService.ts#L271-L361).
 
 ### 11. Offer concise syntax and contextual explanations where they help
 

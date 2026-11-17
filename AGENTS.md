@@ -4,6 +4,13 @@
 
 When the user explicitly asks you to merge, you may override branch policy to complete the requested merge.
 
+## Repository
+
+- **Canonical repo:** `durissbs/Duris` (https://github.com/durissbs/Duris). Push branches, open PRs and issues, merge, and deploy from there; production's `~/duris` tracks its `master`.
+- **History:** The repo moved from `LuminariMUD/Duris` on 2026-11-17. Issue/PR numbers through #1098 in older docs and commit messages refer to `LuminariMUD/Duris`. `durissbs/Duris` numbering restarted at #1, so write new references as `durissbs/Duris#N` or a full link.
+- **Do not** push to, open PRs on, or file issues in `LuminariMUD/Duris`. If a checkout's `origin` still points there, use the canonical repo instead and say so.
+- The project website is still published at https://luminarimud.github.io/Duris/.
+
 ## Golden rules
 
 Write the simplest code that fully solves the task. Build only what is needed now: no new abstractions, helpers, options, or layers for needs that don't exist yet, and no handling for situations that can't happen. Reuse what the codebase already has before adding anything new. Simple means easy to read and follow, not short or clever, so keep the error handling and tests the task really needs. If a fix would stack another patch onto tangled code, straighten out the piece you are touching instead. Before finishing, reread the change and cut anything the task would not miss.

@@ -27138,7 +27138,7 @@ moving and resizing panels; 'ui layout lock' locks them again.
 to Mudlet's main output area; 'ui on' displays the interface again.
 If live data is missing, use 'ui debug', check GMCP is enabled, and
 reconnect into the game. For maps, use 'mapper status' and 'mapper debug'.
-Package instructions: https://github.com/LuminariMUD/duris-client
+Package instructions: https://github.com/durissbs/duris-client
 #
 Enervate
 The spell is named Enervation. Syntax: cast 'enervation' <target>

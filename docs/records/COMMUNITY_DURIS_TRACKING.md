@@ -1,6 +1,6 @@
 # Community Duris tracking
 
-Our line (`github.com/LuminariMUD/Duris`) and
+Our line (`github.com/durissbs/Duris`, formerly `github.com/LuminariMUD/Duris`) and
 [Community-Duris/Duris](https://github.com/Community-Duris/Duris) on GitHub share one history up
 to 2026-09-23 and have been developed separately since. This file records where the split is,
 every change they have landed since, sorted into bug fixes and everything else, and what we did

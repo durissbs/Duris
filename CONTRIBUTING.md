@@ -8,22 +8,20 @@ logs, player/account data, backups, or anything under `bin/`.
 
 ## Contributor Access and Merge Permissions
 
-Contributors receive **Write** access to `LuminariMUD/Duris`. They can push topic
-branches, open pull requests, and review or approve other contributors' PRs.
-They **cannot push directly to `master` or merge PRs into it**, even after a PR
-has been approved.
+The repository is [`durissbs/Duris`](https://github.com/durissbs/Duris). It moved
+there from `LuminariMUD/Duris` on 2026-11-17. Issue and PR numbers through #1098
+in older docs and commit messages refer to `LuminariMUD/Duris`; new issues and PRs
+belong in `durissbs/Duris`, whose numbering restarted at #1.
 
-The active [Master ruleset](https://github.com/LuminariMUD/Duris/rules/24724295)
-targets the default branch (`master`) and restricts branch updates to actors with
-bypass permission. Only repository admins and organization owners have that
-permission; they handle merges into `master`.
+Contributors receive **Write** access to `durissbs/Duris`. They can push topic
+branches, open pull requests, and review or approve other contributors' PRs.
+They **do not push directly to `master` or merge PRs into it**, even after a PR
+has been approved. The repository owner handles merges into `master`.
 
 To add a contributor, invite their GitHub username through the repository's
-**Settings → Collaborators and teams** with **Write** access. Outside collaborators
-can receive access to this repository without organization membership and must
-accept the invitation before their access takes effect. Keep contributors out of
-the ruleset's bypass list and do not grant them repository Admin or organization
-Owner access.
+**Settings → Collaborators** with **Write** access. They must accept the
+invitation before their access takes effect. Do not grant contributors Admin
+access.
 
 ## Recommended Git Workflow
 

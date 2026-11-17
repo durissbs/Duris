@@ -30,7 +30,10 @@ boundary. Standalone triage does not require deployment, help work, or news.
 
 ## Establish current master and investigate
 
-Identify the repository from Git remotes/GitHub metadata. Fetch its current
+Identify the repository from Git remotes/GitHub metadata; the canonical repository
+is `durissbs/Duris` (see `AGENTS.md`), and a remote that still names
+`LuminariMUD/Duris` is stale. File new issues in `durissbs/Duris`, but search both
+for existing work: issues and PRs through #1098 live in `LuminariMUD/Duris`. Fetch its current
 `master` and record the full SHA without switching branches or pulling code into
 the running checkout; for an `origin` remote, use `git fetch origin master` and
 pin the fetched revision. Inspect that tree with `git show`/`git log` or GitHub

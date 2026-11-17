@@ -3,7 +3,7 @@
 Status: implementation, review follow-up and local acceptance complete. [PR #586](https://github.com/LuminariMUD/Duris/pull/586) and [PR #587](https://github.com/LuminariMUD/Duris/pull/587) were squash-merged in order; [PR #588](https://github.com/LuminariMUD/Duris/pull/588) is rebased directly onto the resulting master and ready to merge. Updated 2026-11-02. No deployment has been performed.
 
 - Work item: [Duris #584](https://github.com/LuminariMUD/Duris/issues/584).
-- Linked development branch: [branch/issue-584-flight-transport](https://github.com/LuminariMUD/Duris/tree/branch/issue-584-flight-transport).
+- Linked development branch: [branch/issue-584-flight-transport](https://github.com/durissbs/Duris/tree/branch/issue-584-flight-transport).
 - Local worktree: `/home/aiwithapex/projects/duris-issue-584`.
 - Inspected base: `5708e269974ab070ea224f720e7e2e787e2d6671` (`origin/master` when created).
 - Method: [ablation](../../.agents/skills/ablation/SKILL.md), applied to the code and acceptance criteria below.

@@ -787,7 +787,7 @@ not final combined-stack qualification or production rollout; full-server fault
 journeys and the broad gates remain due after #73–#75 integration.
 
 Issue #58 is locally qualified on `fix/58-artifact-guild-memory`. The
-[qualification record](https://github.com/LuminariMUD/Duris/blob/76262c0b71da4bf1e835228475930a966fb08310/docs/records/log-server-review.md#qualification-update-2026-10-14)
+[qualification record](https://github.com/durissbs/Duris/blob/76262c0b71da4bf1e835228475930a966fb08310/docs/records/log-server-review.md#qualification-update-2026-10-14)
 maps the acceptance criteria to tests, records local logs and separates review
 readiness from production rollout.
 
@@ -1018,7 +1018,7 @@ fails at the adjacent-room assertion. RNG, eligibility, presentation, movement
 endpoints, and wait are adapters; no live cast, production rollout, or historical
 attribution is claimed. The development server build and eight related focused
 zone/movement/lifecycle/latency tests pass. Evidence and remaining original
-acceptance are in [the continuation plan](https://github.com/LuminariMUD/Duris/blob/76262c0b71da4bf1e835228475930a966fb08310/docs/records/plan-issue-106.md).
+acceptance are in [the continuation plan](https://github.com/durissbs/Duris/blob/76262c0b71da4bf1e835228475930a966fb08310/docs/records/plan-issue-106.md).
 
 The legacy physical `damage()` wrapper now stops a skill after either
 participant dies, matching its spell branch. Previously simultaneous death

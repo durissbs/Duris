@@ -3,7 +3,7 @@
 Status: implementation and local qualification complete. Prerequisites #628, #632, #634, #635, #636, #639 and #640 are merged. [Final PR #641](https://github.com/LuminariMUD/Duris/pull/641) targets master and is ready for review. Updated 2026-11-04.
 
 - Work item: [Duris #612](https://github.com/LuminariMUD/Duris/issues/612).
-- GitHub Development branch: [branch/issue-612-kept-character-resume](https://github.com/LuminariMUD/Duris/tree/branch/issue-612-kept-character-resume).
+- GitHub Development branch: [branch/issue-612-kept-character-resume](https://github.com/durissbs/Duris/tree/branch/issue-612-kept-character-resume).
 - Local worktree: `/home/aiwithapex/projects/duris-issue-612-kept-characters`.
 - Inspected base: `96ef0ed6b1c1e70edf8aaf560712edc322ce70f6`, fetched from `origin/master` on 2026-11-03.
 - Method: [ablation](../../.agents/skills/ablation/SKILL.md), applied after tracing current callers, persistence, loading, grants, and tests.

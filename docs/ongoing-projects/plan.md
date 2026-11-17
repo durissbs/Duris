@@ -3,7 +3,7 @@
 Status: implementation and local qualification complete. All five focused PRs, including review repairs, are committed, pushed and ready for review. Merge and deployment remain separate work.
 
 - Work item: [Duris #707](https://github.com/LuminariMUD/Duris/issues/707). The scope is "Rani's final proposal — 9 November 2026" at the top of the issue. The earlier proposal below it is history, as the issue says.
-- GitHub Development branch: [branch/issue-707-bard-redesign](https://github.com/LuminariMUD/Duris/tree/branch/issue-707-bard-redesign).
+- GitHub Development branch: [branch/issue-707-bard-redesign](https://github.com/durissbs/Duris/tree/branch/issue-707-bard-redesign).
 - Local worktree: `/home/aiwithapex/projects/duris-issue-707-bard-redesign`.
 - Inspected base: `d05167b75a580f850a81805c0d6787bcafc90988`, fetched from `origin/master` on 2026-11-10.
 - Method: [ablation](../../.agents/skills/ablation/SKILL.md), applied after reading the song code, skill and spell registrations, casting, spell damage, stealth, pet, charm and achievement paths, and their tests.

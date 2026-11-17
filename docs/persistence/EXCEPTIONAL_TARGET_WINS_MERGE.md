@@ -159,9 +159,9 @@ DurisWeb's [maintenance recovery issue](https://github.com/LuminariMUD/DurisWeb/
 tracks the complete-group contract.
 
 DurisWeb has recorded final import dispositions for
-[quarantined items](https://github.com/LuminariMUD/DurisWeb/blob/master/docs/post-import/quarantined-item-disposition.md),
-[normalized affiliations](https://github.com/LuminariMUD/DurisWeb/blob/master/docs/post-import/legacy-affiliation-disposition.md),
-and [orphaned PvP comments](https://github.com/LuminariMUD/DurisWeb/blob/master/docs/post-import/orphaned-pvp-comment-disposition.md).
+[quarantined items](https://github.com/durissbs/DurisWeb/blob/master/docs/post-import/quarantined-item-disposition.md),
+[normalized affiliations](https://github.com/durissbs/DurisWeb/blob/master/docs/post-import/legacy-affiliation-disposition.md),
+and [orphaned PvP comments](https://github.com/durissbs/DurisWeb/blob/master/docs/post-import/orphaned-pvp-comment-disposition.md).
 Those decisions do not authorize MUD-side recovery or imply that the protected
 work in [#126](https://github.com/LuminariMUD/Duris/issues/126) and
 [#127](https://github.com/LuminariMUD/Duris/issues/127) has been executed.

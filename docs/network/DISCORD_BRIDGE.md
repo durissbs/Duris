@@ -16,7 +16,7 @@ The Discord destination must be visible only to the intended staff and bot.
 Discord posts never become game replies. The feed is optional and best effort;
 native petition logs remain the audit record.
 The cross-repository plan is
-[`discord-mud-chat/docs/ongoing-projects/duris-petition-compatibility.md`](https://github.com/LuminariMUD/discord-mud-chat/blob/main/docs/ongoing-projects/duris-petition-compatibility.md).
+[`discord-mud-chat/docs/ongoing-projects/duris-petition-compatibility.md`](https://github.com/durissbs/discord-mud-chat/blob/main/docs/ongoing-projects/duris-petition-compatibility.md).
 
 ## Text and staff audit identities
 

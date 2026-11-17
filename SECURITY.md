@@ -14,7 +14,7 @@ Older source snapshots and private forks are not supported with backported fixes
 
 Do not open a public issue, discussion, pull request, game ticket, or chat message for
 an undisclosed vulnerability. Use the repository's enabled
-[private vulnerability reporting form](https://github.com/LuminariMUD/Duris/security/advisories/new).
+[private vulnerability reporting form](https://github.com/durissbs/Duris/security/advisories/new).
 Include the affected revision, impact, prerequisites, minimal reproduction, and any
 suggested mitigation. Do not include real player data, credentials, private keys, or
 production database contents; use fabricated test data.

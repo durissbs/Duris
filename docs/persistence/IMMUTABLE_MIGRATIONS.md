@@ -400,7 +400,7 @@ shape and position. Replays preserve existing values and snapshots; old rows
 and old-writer inserts retain unknown consent. No current player flag is used
 to backfill permission. The v4 combat writer records NULL/0/1 with each owned
 snapshot in the existing transaction. See the
-[PvP implementation and rollout plan](https://github.com/LuminariMUD/Duris/blob/76262c0b71da4bf1e835228475930a966fb08310/docs/records/2026-10-18-pvp-mud-implementation-plan.md).
+[PvP implementation and rollout plan](https://github.com/durissbs/Duris/blob/76262c0b71da4bf1e835228475930a966fb08310/docs/records/2026-10-18-pvp-mud-implementation-plan.md).
 
 Migration 0044 adds canonical artifact UID/state fields to the existing
 `artifact_domain_state` store. It retains `item_uid` and its custody FK: the

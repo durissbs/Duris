@@ -506,7 +506,7 @@ command: the first preserves the old season, the second keeps the new epoch fenc
 Repairing Redis cleanup alone does not declare SQL reset complete.
 
 Before stopping website writers, complete DurisWeb's
-[legacy temporary-copy preservation gate](https://github.com/LuminariMUD/DurisWeb/blob/7147e6b1bece2e650dbe3cb312c904edfa43bf9d/docs/deployment.md#legacy-temporary-copy-preservation-gate).
+[legacy temporary-copy preservation gate](https://github.com/durissbs/DurisWeb/blob/7147e6b1bece2e650dbe3cb312c904edfa43bf9d/docs/deployment.md#legacy-temporary-copy-preservation-gate).
 Its service's private temporary directory can be removed on stop. The player-event
 season fence orders publication against the SQL boundary. The website cutover is
 owned jointly by the wipe operator and website service owner:
@@ -606,7 +606,7 @@ command: the first preserves the old season, the second keeps the new epoch fenc
 Repairing Redis cleanup alone does not declare SQL reset complete.
 
 Before stopping website writers, complete DurisWeb's
-[legacy temporary-copy preservation gate](https://github.com/LuminariMUD/DurisWeb/blob/7147e6b1bece2e650dbe3cb312c904edfa43bf9d/docs/deployment.md#legacy-temporary-copy-preservation-gate).
+[legacy temporary-copy preservation gate](https://github.com/durissbs/DurisWeb/blob/7147e6b1bece2e650dbe3cb312c904edfa43bf9d/docs/deployment.md#legacy-temporary-copy-preservation-gate).
 Its service's private temporary directory can be removed on stop. The player-event
 season fence orders publication against the SQL boundary; the external-writer,
 cache, donation and reconnect rehearsal is recorded in the pwipe qualification plan.

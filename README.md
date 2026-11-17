@@ -447,10 +447,10 @@ for searchable guides with source links, code highlighting, and diagrams.
 The complete index, including builder references and standalone diagrams, is
 in [`docs/README_docs.md`](docs/README_docs.md).
 
-[build]: https://github.com/LuminariMUD/Duris/actions/workflows/build.yml
-[build-badge]: https://img.shields.io/github/actions/workflow/status/LuminariMUD/Duris/build.yml?branch=master&style=flat-square&logo=githubactions&logoColor=white&label=build
-[commit-badge]: https://img.shields.io/github/last-commit/LuminariMUD/Duris?style=flat-square&logo=github
-[commits]: https://github.com/LuminariMUD/Duris/commits/master
+[build]: https://github.com/durissbs/Duris/actions/workflows/build.yml
+[build-badge]: https://img.shields.io/github/actions/workflow/status/durissbs/Duris/build.yml?branch=master&style=flat-square&logo=githubactions&logoColor=white&label=build
+[commit-badge]: https://img.shields.io/github/last-commit/durissbs/Duris?style=flat-square&logo=github
+[commits]: https://github.com/durissbs/Duris/commits/master
 [compiler-badge]: https://img.shields.io/badge/compiler-g%2B%2B-A42E2B?style=flat-square&logo=gnu&logoColor=white
 [cpp20-badge]: https://img.shields.io/badge/C%2B%2B-20-00599C?style=flat-square&logo=cplusplus&logoColor=white
 [database-badge]: https://img.shields.io/badge/database-MySQL%20%2F%20MariaDB-4479A1?style=flat-square&logo=mysql&logoColor=white
