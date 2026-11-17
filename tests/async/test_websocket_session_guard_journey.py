@@ -70,6 +70,15 @@ def in_game_commands(server):
     assert "Your starter kit is ready" in json.dumps(entered), entered
     assert "couldn't load" not in json.dumps(entered), entered
     save(client)
+    # A new login takes over a live WebSocket body. Closing the detached old
+    # descriptor logs the close before it leaves descriptor_list.
+    for _ in range(2):
+        replacement, resumed = websocket_login(server, account.ACCOUNT)
+        assert resumed["status"] == "reconnected", resumed
+        client.close()
+        client = replacement
+        save(client)
+        assert server.process.poll() is None
     refused = client.command("login", {"account": OTHER, "password": account.OLD_PASSWORD}, "auth")
     assert refused["status"] == "failed", refused
     refused = client.command("login", {"account": account.ACCOUNT, "password": "wrong-password-1"}, "auth")
