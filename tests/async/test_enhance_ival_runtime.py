@@ -88,6 +88,7 @@ static bool refuse_pouch_write;
 static int unavailable_vnum;
 static int charges;
 static int rolls;
+static int selection_roll = -1;
 static std::vector<std::string> config_logs;
 static std::string output;
 static std::string keywords;
@@ -121,7 +122,14 @@ Skill skills[MAX_AFFECT_TYPES + 1];
 static void fixture_spell(int,P_char,char*,int,P_char,P_obj) { assert(false); }
 static const bool prepared_spells = [] { for (int id : {32,33,37}) skills[id].spell_pointer=fixture_spell; return true; }();
 item_value_proc_entry item_value_proc(obj_proc_type proc) { assert(!proc); return {nullptr, "none", 0, item_value_proc_policy::none}; }
-int number(int low, int high) { ++rolls; return lucky ? low : high; }
+int number(int low, int high) {
+    ++rolls;
+    if (low == 0 && selection_roll >= 0) {
+        assert(selection_roll <= high);
+        return selection_roll;
+    }
+    return lucky ? low : high;
+}
 void logit(const char *, const char *format, ...) {
     char buffer[2048]; va_list args; va_start(args, format);
     std::vsnprintf(buffer, sizeof(buffer), format, args); va_end(args);
@@ -533,6 +541,53 @@ static obj_data &valued(int slot, int vnum, int target)
         }
     assert(!"no fixture reaches the requested item value");
     return obj;
+}
+
+static void test_random_same_value_replacements()
+{
+    const int previous_gain = enhance_ival_gain_normal;
+    for (int gain : {1, 2, 3, 4}) {
+        for (auto &bucket : enhance_ival_table) bucket = nullptr;
+        auto &source = valued(0, 92000, 88);
+        auto &donor = valued(1, 92001, 83);
+        auto &first = valued(2, 92002, 88 + gain);
+        auto &second = valued(3, 92003, 88 + gain);
+        const int fallback_value = 88 + (gain == 4 ? 3 : gain + 1);
+        valued(4, 92004, fallback_value);
+        enhance_index_entry first_entry{}, second_entry{}, fallback_entry{};
+        index_entry(first_entry, 92002, 88 + gain);
+        index_entry(second_entry, 92003, 88 + gain);
+        index_entry(fallback_entry, 92004, fallback_value);
+        enhance_ival_gain_normal = gain;
+        char_data ch{};
+        ch.player.level = 60; ch.curr_stats.Luk = 10; ch.in_room = NOWHERE;
+        for (int choice : {0, 1}) {
+            selection_roll = choice;
+            GET_PLATINUM(&ch) = 20; source.loc_p = donor.loc_p = LOC_CARRIED;
+            enhance(&ch, &source, &donor);
+            assert(result && OBJ_VNUM(result) == (choice == 0 ? 92003 : 92002));
+            assert(itemvalue(result) == 88 + gain && charges == 1);
+            clear_attempt();
+        }
+        // If the randomly selected template fails to load, try its peer first.
+        selection_roll = 0; unavailable_vnum = 92003;
+        GET_PLATINUM(&ch) = 20; source.loc_p = donor.loc_p = LOC_CARRIED;
+        enhance(&ch, &source, &donor);
+        assert(result && OBJ_VNUM(result) == 92002);
+        assert((loads == std::vector<int>{92003, 92002}) && charges == 1);
+        clear_attempt(); unavailable_vnum = 0;
+
+        // If neither exact-value template remains eligible, keep the value cascade.
+        first.wear_flags = second.wear_flags = ITEM_TAKE | ITEM_WEAR_LEGS;
+        GET_PLATINUM(&ch) = 20; source.loc_p = donor.loc_p = LOC_CARRIED;
+        enhance(&ch, &source, &donor);
+        assert(result && OBJ_VNUM(result) == 92004 && itemvalue(result) == fallback_value);
+        assert((loads == std::vector<int>{92004}) && charges == 1);
+        clear_attempt();
+    }
+    selection_roll = -1;
+    enhance_ival_gain_normal = previous_gain;
+    for (auto &bucket : enhance_ival_table) bucket = nullptr;
 }
 
 // The level gate is the only ceiling: a source at 99 upgrades, by at most the largest luck gain.
@@ -1167,6 +1222,7 @@ int main()
     enhancement_system_ready=true;
     test_donor_floor();
     test_replacement();
+    test_random_same_value_replacements();
     test_level_gate_is_the_ceiling();
     test_essence();
     test_superior();
