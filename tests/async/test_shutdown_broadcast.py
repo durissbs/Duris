@@ -137,7 +137,7 @@ int main()
         return line;
     };
 
-    const std::string reason = "Zusuk has new code incoming, brace for impact!";
+    const std::string reason = "Veridian has new code incoming, brace for impact!";
     command("shutdown reboot 3 " + reason);
     assert(shutdownData.eShutdownType == TimedShutdownData::REBOOT);
     assert(shutdownData.reboot_time == now + 180);

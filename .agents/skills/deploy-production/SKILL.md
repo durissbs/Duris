@@ -218,7 +218,7 @@ SIGTERM to the launcher (`KillMode=mixed`) and allows the child enough time to d
 
 Log in as Veridian using the account/menu guidance below and follow
 [the countdown requirement](#player-countdown-for-every-cutover). Prefer a timed
-`shutdown ok 3 Zusuk has new code incoming, brace for impact!` only when an established
+`shutdown ok 3 Veridian has new code incoming, brace for impact!` only when an established
 launcher/service handoff prevents automatic restart until migration and installation
 finish. Inspect the actual launcher: the current `cycle_mud.sh` restarts even after
 child exit 0, so `shutdown ok` alone does not hold writers down. Its ten-second sleep
@@ -229,7 +229,7 @@ When that safe timed handoff is unavailable, explain this limitation and use the
 repeated-broadcast fallback, starting with:
 
 ```text
-echoa Maintenance begins in 180 seconds: Zusuk has new code incoming, brace for impact!
+echoa Maintenance begins in 180 seconds: Veridian has new code incoming, brace for impact!
 ```
 
 Keep Veridian connected through all countdown updates. At the announced deadline,
@@ -287,7 +287,7 @@ an existing staff shutdown; do not silently replace another operator's schedule.
 Issue exactly:
 
 ```text
-shutdown reboot 3 Zusuk has new code incoming, brace for impact!
+shutdown reboot 3 Veridian has new code incoming, brace for impact!
 ```
 
 The numeric argument is **minutes**: `3` means the requested **180 seconds**.
