@@ -4740,8 +4740,13 @@ char *file_to_string(const char *name)
 			return (NULL);
 		}
 		strcat(Gbuf1, tmp);
-		*(Gbuf1 + strlen(Gbuf1) + 1) = '\0';
-		*(Gbuf1 + strlen(Gbuf1)) = '\r';
+		/* fgets() splits lines longer than tmp; add '\r' only after a real newline. */
+		const size_t len = strlen(Gbuf1);
+		if (Gbuf1[len - 1] == '\n')
+		{
+			Gbuf1[len] = '\r';
+			Gbuf1[len + 1] = '\0';
+		}
 	}
 
 	fclose(fl);
