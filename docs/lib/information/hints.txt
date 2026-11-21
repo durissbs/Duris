@@ -125,7 +125,7 @@ Running out of room? Lockers in the hometowns can hold your spare equipment. Rea
 Level cap holding you back? PvP frags decide how far each side can climb. Type "fraglist" for the standings and read "help level cap".
 Type "achievements zones" to see how many quests you have completed in each zone.
 Duris has a fully developed and supported client for Mudlet. Visit https://duris.sbs/mudlet-gui to get it.
-Visit https://discord.gg/UJaqUyPaJ2 to join the Duris Discord server and chat with other players.
+Visit https://discord.gg/e3XE4Yvpz5 to join the Duris Discord server and chat with other players.
 Visit https://duris.sbs/news to read all the latest news, including changes to the game, the website and the Mudlet client.
 Did you know that your game account also works on the website? Visit https://duris.sbs/login to sign in and use the forum, or visit https://duris.sbs/play to play Duris in your web browser.
 New to Duris? Visit https://duris.sbs/newbie to read the newbie guide.

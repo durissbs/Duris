@@ -53,7 +53,7 @@
 #define SAVE_DIR "Players" /* default directory for player save files */
 #define BADNAME_DIR "Players/Declined" /* directory containing a list of declined names*/
 #define STABLE_DIR "Stables" /* default directory for pet stables save files */
-#define NUM_ANSI_LOGINS 4 /* Current number of ANSI login sequences, max is 5 */
+#define NUM_ANSI_LOGINS 5 /* Current number of ANSI login sequences, max is 5 */
 
 /* balance affecting variables */
 
