@@ -257,7 +257,6 @@ void enhance(P_char ch, P_obj source, P_obj material)
 				    std::abs(static_cast<int64_t>(candidate->ival) - newval) <=
 					    radius)
 					candidates.push_back(candidate);
-		// Hash chains already carry the legacy same-score tie order.
 		std::stable_sort(
 			candidates.begin(), candidates.end(),
 			[&](const auto *left, const auto *right)
@@ -277,28 +276,43 @@ void enhance(P_char ch, P_obj source, P_obj material)
 		return;
 	}
 	robj = nullptr;
-	for (const auto *candidate : candidates)
+	for (size_t group = 0; group < candidates.size();)
 	{
-		if (!(wearflags & candidate->wear_flags) || candidate->vnum == OBJ_VNUM(source))
-			continue;
-		const auto *prototype = find_object_template(candidate->vnum);
-		if (!prototype)
-			continue;
-		auto view = inspect_object_template(*prototype);
-		const int value = itemvalue(*prototype);
-		if (!(wearflags & view.wear_flags) || !is_enhance_pool_candidate(&view) ||
-		    value <= sval || value > max_result_value)
-			continue;
-		// Only a selected grant attempt enters the object lifecycle.
-		robj = read_object(candidate->vnum, VIRTUAL);
-		if (!robj)
-			continue;
-		const int live_value = itemvalue(robj);
-		if ((wearflags & robj->wear_flags) && is_enhance_pool_candidate(robj) &&
-		    live_value > sval && live_value <= max_result_value)
+		size_t end = group + 1;
+		while (end < candidates.size() && candidates[end]->ival == candidates[group]->ival)
+			++end;
+		for (size_t i = group; i < end; ++i)
+		{
+			// Randomize ties without changing the order in which values are tried.
+			if (end - i > 1)
+				std::swap(candidates[i],
+					  candidates[i + number(0, static_cast<int>(end - i - 1))]);
+			const auto *candidate = candidates[i];
+			if (!(wearflags & candidate->wear_flags) ||
+			    candidate->vnum == OBJ_VNUM(source))
+				continue;
+			const auto *prototype = find_object_template(candidate->vnum);
+			if (!prototype)
+				continue;
+			auto view = inspect_object_template(*prototype);
+			const int value = itemvalue(*prototype);
+			if (!(wearflags & view.wear_flags) || !is_enhance_pool_candidate(&view) ||
+			    value <= sval || value > max_result_value)
+				continue;
+			// Only a selected grant attempt enters the object lifecycle.
+			robj = read_object(candidate->vnum, VIRTUAL);
+			if (!robj)
+				continue;
+			const int live_value = itemvalue(robj);
+			if ((wearflags & robj->wear_flags) && is_enhance_pool_candidate(robj) &&
+			    live_value > sval && live_value <= max_result_value)
+				break;
+			extract_obj(robj);
+			robj = nullptr;
+		}
+		if (robj)
 			break;
-		extract_obj(robj);
-		robj = nullptr;
+		group = end;
 	}
 
 	if (!robj)
