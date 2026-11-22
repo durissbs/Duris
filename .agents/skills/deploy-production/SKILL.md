@@ -317,6 +317,13 @@ or a successful help lookup does not replace this check. Report any incomplete
 readback. Then quit the deployment character and close your session. Observe
 another minute of normal operation for crashes, restart loops, or recurring errors.
 
+After a successful news readback, post the new section to the players' Discord
+news channel: preview it with
+`scripts/post_news_to_discord.py --channel 1572409179069489298 --dry-run`, then run
+it without `--dry-run`. It uses the Discord bot's token from
+`~/discord-mud-chat/.env` and skips a section it has already posted. A failed post
+does not fail the deployment; report it and leave the game running.
+
 Diagnose any failure from the logs and fix direct deployment mistakes where
 possible; do not blindly repeat reboots or roll old code onto an incompatible
 schema. Report unresolved failures with the actual service state. Deployment
