@@ -4,10 +4,55 @@
 &+R                   PWIPE HAPPENED &+YOCT 28TH 1800 UTC!&n
 &+G                     A NEW SEASON OF BLOOD BEGINS&n
 &+W======================================================================&n
-&+WUpdated: November 22, 2026&n
+&+WUpdated: November 24, 2026&n
 
-Welcome back! More varied enhancement results and a new Discord home.
+Welcome back! Fairer shop prices and a scout's report on the enemy.
 Newest first; later updates replace older rules. Longer archive on web.
+
+&+R11/24/26&n &+L-&n &+YFair prices, watchful scouts and rewards that stay put&n
+&+W----------------------------------------------------------------------&n
+
+&+CShops&n
+&+Y-&n Sell prices start fresh at every reboot. Each sale of an item still
+  lowers its price by &+Y5%&n until the next reboot, down to a tenth of
+  its normal price.
+&+Y-&n Higher charisma now always gets a better price, up to &+Y10%&n more
+  when selling and &+Y10%&n less when buying. Shopkeepers of another race
+  give half that. Very high charisma used to make prices slightly worse.
+&+Y-&n &+C'value'&n now quotes exactly what &+C'sell'&n pays.
+&+Y-&n Shops no longer buy back anything bought in a shop, including items
+  bought before this change. Looted and farmed items and guild-store
+  gear still sell. &+C'help sell'&n has the details.
+&+Y-&n A shop keeps one copy of each item. Selling with a number, such as
+  &+C'sell 2.needle'&n, no longer piles up copies in its stock, and a shop
+  no longer destroys an item because it holds a different item with a
+  similar name.
+
+&+CWho is out there&n
+&+Y-&n &+C'who'&n now gives good and evil players a rough report of how
+  many of the other side were active in the last hour, such as &+L"Shadows
+  gathered at the edges of the realm; evil was on the move."&n Only active
+  players level &+Y30&n and up count, once per account. The report starts
+  5 minutes after each boot. See &+C'help who'&n.
+&+Y-&n The old &+L"There are evils online"&n line is gone, since it counted
+  idle and linkdead characters too.
+
+&+CQuests&n
+&+Y-&n Artifact quest rewards, such as the Torg buckle, now stay with you
+  when you log out and back in. If that artifact is already in someone
+  else's hands, the quest giver tells you instead of handing out a copy
+  that would vanish. Your hand-in items are still taken.
+
+&+CClients and community&n
+&+Y-&n MSP clients redraw far less: group panels skip regeneration ticks
+  (losses and damage still show), ship lookouts draw the map once, and
+  an unchanged automap is not sent again. Type &+C'group'&n for current
+  numbers. Quiet MSP mode now survives in-place restarts.
+&+Y-&n Forest map tiles keep the same pattern instead of shifting on every
+  redraw.
+&+Y-&n The game's home is now &+Chttps://playduris.com/&n. Staff can post
+  an hourly announcement to everyone in the game, and the message of the
+  day links to &+Chttps://github.com/durissbs/Duris&n for suggestions.
 
 &+R11/22/26&n &+L-&n &+YLuck of the draw, and a new tavern to share it in&n
 &+W----------------------------------------------------------------------&n

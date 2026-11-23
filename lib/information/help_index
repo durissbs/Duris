@@ -18382,6 +18382,9 @@ Use toggle terminal msp quiet to keep MSP prompts and maps while displaying
 group status only when you type group. Use toggle terminal msp to restore
 automatic group updates. Clients that use those updates for a group panel
 should keep ordinary MSP mode. Quiet mode lasts for this connection.
+
+Automatic group updates follow damage, losses, movement and group changes,
+not regeneration. Type group for current numbers at any time.
 ===========================================================================
 
 #
@@ -19469,8 +19472,9 @@ VALUE
 ===========================================================================
 Syntax:  value <item>
 
-This will tell you what a shopkeeper will pay you for an item. Keep in mind 
-that this may not always accurately reflect that item's true value.
+This tells you exactly what a shopkeeper will pay if you sell the item now,
+including your charisma and any drop in price from recent sales. Shops do
+not buy back anything bought in a shop, so they will not value it either.
 ===========================================================================
 See also: SHOPS, BUY SELL, LIST
 
@@ -20247,6 +20251,12 @@ mortal characters.
 &+RNOTE&n: On Duris, "Who" will only show the races that are of a like
      alignment. So, for example, an Evil person typing "Who" will only see
      other Evil PC's. The same holds true for Good races. 
+
+Below the list, good and evil characters see a rough report of how many of
+the other side were actively playing in the last hour, taken from samples
+every 5 minutes. Only players level 30 and above who are doing something
+count, once per account; idle, AFK and linkdead characters do not. The report
+appears 5 minutes after each boot.
 ===========================================================================
 
 #
