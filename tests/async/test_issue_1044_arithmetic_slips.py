@@ -20,8 +20,8 @@ PINS = (
     ("skills.c", "7 * PULSE_SPELLCAST / 2", 2, "(7 / 2) * PULSE_SPELLCAST"),
     # NPC monk skill caps at 100 like the other monk skills.
     ("new_skills.c", "skl_lvl = MIN(100, GET_LEVEL(ch) * 3);", 5, "MAX(100, GET_LEVEL(ch)"),
-    # Charisma caps at 100, so low charisma and race change prices.
-    ("shop.c", "cha_app[STAT_INDEX(MIN(100, GET_C_CHA(ch)))]", 4, "MAX(100, GET_C_CHA(ch))"),
+    # Charisma caps at 100, so low charisma and race change prices (buy and sell factors).
+    ("shop.c", "cha_app[STAT_INDEX(MIN(100, GET_C_CHA(ch)))]", 2, "MAX(100, GET_C_CHA(ch))"),
     # Wizard eye range is level * 2, capped by the max-distance property.
     ("magic.c", 'MIN(level * 2, (int)get_property("spell.wizardEye.maxDistance", 100))', 1,
      'MAX(level * 2, (int)get_property("spell.wizardEye.maxDistance"'),
