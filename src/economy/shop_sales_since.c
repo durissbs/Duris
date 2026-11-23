@@ -40,6 +40,8 @@ time_t shop_sales_since(const std::string &directory, bool copyover, time_t now,
 	const int64_t since = now;
 	std::vector<uint8_t> bytes(sizeof(since));
 	memcpy(bytes.data(), &since, sizeof(since));
-	flatfile_atomic_write(directory, since_file, bytes, error);
+	// A record left by an earlier cold start would make a later copyover count its sales.
+	if (!flatfile_atomic_write(directory, since_file, bytes, error))
+		flatfile_atomic_remove(directory, since_file, true, nullptr);
 	return now;
 }

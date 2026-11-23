@@ -2,6 +2,8 @@
 """Sell-price sale counts restart on every reboot or crash and survive a copyover."""
 from pathlib import Path
 import os
+import resource
+import signal
 import subprocess
 import tempfile
 
@@ -36,11 +38,15 @@ with tempfile.TemporaryDirectory(prefix="shop-sales-since-", dir=output) as temp
     ], check=True)
     state = directory / "shop-sales"
 
-    def run(mode, now):
+    def no_file_writes():
+        signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+        resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+
+    def run(mode, now, failing_writes=False):
         return subprocess.check_output([str(binary), str(state), mode, str(now)], cwd=directory,
                                        text=True, timeout=15, env={
             **os.environ, "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1",
-        }).split()
+        }, preexec_fn=no_file_writes if failing_writes else None).split()
 
     # A copyover before any recorded cold start counts from now.
     assert run("copyover", 1000) == ["1000", "fallback"]
@@ -54,6 +60,11 @@ with tempfile.TemporaryDirectory(prefix="shop-sales-since-", dir=output) as temp
     assert run("copyover", 4100) == ["4000", "ok"]
     # A saved time in the future is not trusted.
     assert run("copyover", 3500) == ["3500", "fallback"]
+    # A cold start that cannot record its time (a full disk, say) must not leave the
+    # previous cold start's record for a later copyover to count from.
+    assert run("cold", 6000) == ["6000", "ok"]
+    assert run("cold", 7000, failing_writes=True) == ["7000", "fallback"]
+    assert run("copyover", 7100) == ["7100", "fallback"]
     # A damaged record falls back to now.
     (state / "since").write_bytes(b"bad")
     assert run("copyover", 5000) == ["5000", "fallback"]

@@ -16,6 +16,7 @@
 #include "core/utils.h"
 #include "economy/currency_transaction.h"
 #include "economy/shop.h"
+#include "economy/shop_price.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -55,6 +56,23 @@ extern P_obj object_list;
 struct shop_data *shop_index;
 int number_of_shops = 0;
 const char *operator_str[] = { "[({", "])}", "|+", "&*", "^'" };
+
+// The shop's price for this player, as a share of an item's cost.
+static float player_sell_factor(P_char ch, P_char keeper, int shop_nr)
+{
+	return shop_sell_factor(
+		shop_index[shop_nr].buy_percent,
+		shop_charisma_bonus(cha_app[STAT_INDEX(MIN(100, GET_C_CHA(ch)))].modifier,
+				    GET_RACE(ch) == GET_RACE(keeper), true));
+}
+
+static float player_buy_factor(P_char ch, P_char keeper, int shop_nr)
+{
+	return shop_buy_factor(
+		shop_index[shop_nr].sell_percent,
+		shop_charisma_bonus(cha_app[STAT_INDEX(MIN(100, GET_C_CHA(ch)))].modifier,
+				    GET_RACE(ch) == GET_RACE(keeper), false));
+}
 
 struct produced_purchase_batch
 {
@@ -802,15 +820,7 @@ void shopping_buy(char *arg, P_char ch, P_char keeper, int shop_nr)
 		return;
 	}
 
-	cost_factor = (float)cha_app[STAT_INDEX(MIN(100, GET_C_CHA(ch)))].modifier;
-	if (GET_RACE(ch) != GET_RACE(keeper))
-		cost_factor = cost_factor * 2.;
-
-	cost_factor = shop_index[shop_nr].sell_percent * (1.0 - (cost_factor / 100.));
-	if (cost_factor < shop_index[shop_nr].sell_percent)
-	{
-		cost_factor = shop_index[shop_nr].sell_percent + .01;
-	}
+	cost_factor = player_buy_factor(ch, keeper, shop_nr);
 
 	if (has_innate(ch, INNATE_BARTER))
 	{
@@ -986,13 +996,7 @@ void shopping_sell(char *arg, P_char ch, P_char keeper, int shop_nr)
 		do_tell(keeper, Gbuf1, 0);
 		return;
 	}
-	cost_factor = (float)cha_app[STAT_INDEX(MIN(100, GET_C_CHA(ch)))].modifier;
-	if (GET_RACE(ch) != GET_RACE(keeper))
-		cost_factor = cost_factor / 2.;
-
-	cost_factor = shop_index[shop_nr].buy_percent * (1.0 + (cost_factor / 100.));
-	if (cost_factor > shop_index[shop_nr].buy_percent)
-		cost_factor = shop_index[shop_nr].buy_percent - .01;
+	cost_factor = player_sell_factor(ch, keeper, shop_nr);
 
 	/*
 	  Taken out the staff/scroll/wand/potion modifier since players only
@@ -1073,7 +1077,9 @@ void shopping_sell(char *arg, P_char ch, P_char keeper, int shop_nr)
 	  if (!number(0, 3))
 	    shop_index[shop_nr].sell_percent -= .03;
 	*/
-	if ((get_obj_in_list(argm, keeper->carrying)) || (GET_ITEM_TYPE(temp1) == ITEM_TRASH))
+	// The shop keeps one of each item: a copy of one it already has is destroyed.
+	if ((temp1->R_num >= 0 && get_obj_in_list_num(temp1->R_num, keeper->carrying)) ||
+	    (GET_ITEM_TYPE(temp1) == ITEM_TRASH))
 	{
 		extract_obj(temp1, TRUE); // Prolly not an arti if type trash.
 		temp1 = NULL;
@@ -1130,27 +1136,8 @@ void shopping_value(char *arg, P_char ch, P_char keeper, int shop_nr)
 		return;
 	}
 
-	cost_factor = (float)cha_app[STAT_INDEX(MIN(100, GET_C_CHA(ch)))].modifier;
-
-	if (GET_RACE(ch) != GET_RACE(keeper))
-		cost_factor = cost_factor / 2;
-
-	cost_factor = shop_index[shop_nr].buy_percent * (1.0 + (cost_factor / 100.));
-
-	if (cost_factor > shop_index[shop_nr].buy_percent)
-		cost_factor = shop_index[shop_nr].buy_percent - .01;
-
-	if (has_innate(ch, INNATE_BARTER))
-	{
-		if (GET_C_CHA(ch) > number(0, 125))
-		{
-			cost_factor -= .25;
-		}
-		else
-		{
-			cost_factor += .10;
-		}
-	}
+	// Quote exactly what selling pays.
+	cost_factor = player_sell_factor(ch, keeper, shop_nr);
 	/*
 	  if (temp1->type == ITEM_SCROLL || temp1->type == ITEM_POTION ||
 	      temp1->type == ITEM_STAFF || temp1->type == ITEM_WAND)
@@ -1269,11 +1256,7 @@ void shopping_list(char * /*arg*/, P_char ch, P_char keeper, int shop_nr)
 	if (!(is_ok(keeper, ch, shop_nr)))
 		return;
 
-	cost_factor = (float)cha_app[STAT_INDEX(MIN(100, GET_C_CHA(ch)))].modifier;
-	if (GET_RACE(ch) != GET_RACE(keeper))
-		cost_factor = cost_factor * 2.;
-
-	cost_factor = shop_index[shop_nr].sell_percent * (1.0 - (cost_factor / 100.));
+	cost_factor = player_buy_factor(ch, keeper, shop_nr);
 
 	/* This is dumb for prices to randomly change when you type 'list' at a shop.
 	 * It would be proper to show the full price, then add "You get %s at a %d%% discount." when buying.
@@ -1289,9 +1272,6 @@ void shopping_list(char * /*arg*/, P_char ch, P_char keeper, int shop_nr)
 	  }
 	}
 	*/
-
-	if (cost_factor < shop_index[shop_nr].sell_percent)
-		cost_factor = shop_index[shop_nr].sell_percent + .01;
 
 	/*
 	 * New routine for listing goods by numbers. MIAX
@@ -1967,8 +1947,8 @@ void boot_the_shops(void)
 			 */
 			if (shop_index[number_of_shops].sell_percent > 10.0)
 				shop_index[number_of_shops].sell_percent = 10.0;
-			if (shop_index[number_of_shops].sell_percent < 1.0)
-				shop_index[number_of_shops].sell_percent = 1.0;
+			if (shop_index[number_of_shops].sell_percent < shop_min_sell_percent)
+				shop_index[number_of_shops].sell_percent = shop_min_sell_percent;
 
 			/*
 			 * with a buy% > .7, it is possible for high charisma players to MAKE
@@ -1976,8 +1956,8 @@ void boot_the_shops(void)
 			 * places you can do it are in the same city, and the shops CAN'T go out
 			 * of business, it's called a bug). JAB
 			 */
-			if (shop_index[number_of_shops].buy_percent > 0.8)
-				shop_index[number_of_shops].buy_percent = .8;
+			if (shop_index[number_of_shops].buy_percent > shop_max_buy_percent)
+				shop_index[number_of_shops].buy_percent = shop_max_buy_percent;
 			if (shop_index[number_of_shops].buy_percent < 0.05)
 				shop_index[number_of_shops].buy_percent = .05;
 

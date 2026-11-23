@@ -2938,14 +2938,23 @@ static recent_counts recent_quest_rewards = { 14, {} };
 static void sql_load_recent_counts(void)
 {
 	// Sell prices start fresh on every reboot or crash; a copyover keeps this session's sales.
+	// Sale times come from the database clock, so the start time does too.
+	time_t now = time(0);
+	if (MYSQL_RES *clock = db_query("SELECT UNIX_TIMESTAMP()"))
+	{
+		if (MYSQL_ROW row = mysql_fetch_row(clock); row && row[0])
+			now = static_cast<time_t>(atoll(row[0]));
+		mysql_free_result(clock);
+	}
 	std::string error;
-	const time_t since = shop_sales_since("shop-sales", copyover_boot, time(0), &error);
+	const time_t since = shop_sales_since("shop-sales", copyover_boot, now, &error);
 	if (!error.empty())
 		logit(LOG_STATUS, "Shop sale counts start now: %s.", error.c_str());
+	// Compare epoch seconds: local times repeat when daylight saving ends.
 	recent_shop_sales.load(
 		sql_format("SELECT item, TO_DAYS(NOW()) - TO_DAYS(timestamp) FROM shop_trophy "
 			   "WHERE TO_DAYS(NOW()) - TO_DAYS(timestamp) <= 7 "
-			   "AND timestamp >= FROM_UNIXTIME(%lld)",
+			   "AND UNIX_TIMESTAMP(timestamp) >= %lld",
 			   static_cast<long long>(since))
 			.c_str());
 	recent_quest_rewards.load(
