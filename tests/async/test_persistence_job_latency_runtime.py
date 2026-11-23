@@ -18,6 +18,7 @@ collector_catalog_cache_pulse collector_maintenance_pulse collector_presence_pul
 collector_service_pulse account_recovery_pulse redis_world_recovery_pulse
 sql_async_pulse divine_trade_runtime_retire_pulse sql_ship_write_pulse
 artifact_guild_transaction_pulse arti_cache_retry sql_mud_info_refresh
+announce_pulse
 """.split()
 OTHER_JOBS = """
 critical_command_coordinator_pulse critical_gameplay_handle_completions
@@ -204,6 +205,7 @@ int main()
     assert(!section(odd, "gmcp_flush") && !section(odd, "gmcp_protocol"));
     assert(!section(odd, "player_save_pipeline_pulse") && !section(odd, "player_load_delivery"));
     assert(!section(odd, "arti_cache_retry") && !section(odd, "sql_mud_info_refresh"));
+    assert(!section(odd, "announce_pulse"));
     assert(delivered == 0 && offline == 0 && stale == 0);
     auto even = run("", 0, 2);
     assert(section(even, "gmcp_flush"));
@@ -212,7 +214,7 @@ int main()
 #ifndef __NO_MYSQL__
     assert(section(second, "arti_cache_retry"));
 #endif
-    assert(!section(second, "sql_mud_info_refresh"));
+    assert(!section(second, "sql_mud_info_refresh") && !section(second, "announce_pulse"));
     run("sql_async_pulse", 49999, 1);
     assert(reports.empty());
 

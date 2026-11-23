@@ -47,6 +47,7 @@ bool boot_material_rarity_objects(int mini_mode);
 
 #define HELP_PAGE_FILE "lib/information/help" /* for HELP <CR>             */
 #define MOTD_FILE "lib/information/motd" /* messages of today         */
+#define ANNOUNCE_FILE "lib/information/announce" /* hourly broadcast to players */
 
 #define EMAIL_FILE "Players/emailreg" /* EMAIL Registration file */
 
