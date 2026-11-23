@@ -7608,18 +7608,20 @@ void sample_enemy_presence()
 static void append_enemy_presence(P_char ch, char *out, size_t size, int64_t now)
 {
 	static const char *const seen_by_good[] = {
-		"&+wNo servant of darkness stirred upon the land.&n",
-		"&+rA faint taint of evil lingered upon the land.&n",
-		"&+rDark shapes moved through the wilds; evil was abroad.&n",
-		"&+RAn evil host gathered in strength across the realm.&n",
-		"&+RA great horde of darkness swarmed over the land!&n",
+		"&+wThe land lay quiet; no taint of darkness was felt.&n",
+		"&+rA faint stench of evil drifted on the wind.&n",
+		"&+rShadows gathered at the edges of the realm; evil was on the move.&n",
+		"&+RWar drums echoed as the forces of darkness mustered.&n",
+		"&+RA dark host marched openly across the land.&n",
+		"&+RA horde of evil beyond counting blackened the land!&n",
 	};
 	static const char *const seen_by_evil[] = {
 		"&+wNo do-gooder dared show their face.&n",
-		"&+yThe stench of a few righteous fools hung in the air.&n",
-		"&+yBands of the so-called righteous prowled the land.&n",
-		"&+YThe armies of the light marshalled in numbers.&n",
-		"&+YA shining host of the light flooded the realm!&n",
+		"&+yA few self-righteous fools wandered where they did not belong.&n",
+		"&+yBands of meddling do-gooders roamed the land.&n",
+		"&+YBanners of the light rose as the do-gooders gathered their strength.&n",
+		"&+YAn army of the light marched openly, hymns ringing across the realm.&n",
+		"&+YA shining host beyond counting flooded the realm!&n",
 	};
 	// A morphed or switched player types who through a mob body with no side.
 	P_char viewer = GET_PLYR(ch);
@@ -7650,7 +7652,12 @@ static void append_enemy_presence(P_char ch, char *out, size_t size, int64_t now
 	}
 	const bool viewer_good = IS_RACEWAR_GOOD(viewer);
 	const unsigned peak = viewer_good ? evil : good;
-	const int band = peak == 0 ? 0 : peak <= 4 ? 1 : peak <= 8 ? 2 : peak <= 12 ? 3 : 4;
+	const int band = peak == 0  ? 0 :
+			 peak <= 4  ? 1 :
+			 peak <= 8  ? 2 :
+			 peak <= 12 ? 3 :
+			 peak <= 16 ? 4 :
+				      5;
 	checked_snprintf(out + strlen(out), size - strlen(out),
 			 "%s &+L(Scouts reported %ld minute%s ago.)&n\n",
 			 (viewer_good ? seen_by_good : seen_by_evil)[band], minutes,

@@ -69,7 +69,7 @@ int main()
     fake_now += 1;
     sample_enemy_presence();
     assert(report(&good) ==
-           "&+rDark shapes moved through the wilds; evil was abroad.&n "
+           "&+rShadows gathered at the edges of the realm; evil was on the move.&n "
            "&+L(Scouts reported 0 minutes ago.)&n\n");
     assert(report(&evil) ==
            "&+wNo do-gooder dared show their face.&n &+L(Scouts reported 0 minutes ago.)&n\n");
@@ -106,14 +106,15 @@ int main()
     assert(report(&evil).find("No do-gooder") != std::string::npos);
     // The six evils sampled five minutes ago still set the peak.
     fake_now += 61;
-    assert(report(&good).find("Dark shapes") != std::string::npos);
+    assert(report(&good).find("Shadows gathered") != std::string::npos);
     assert(report(&good).find("(Scouts reported 1 minute ago.)") != std::string::npos);
 
     // Band edges.
     const std::pair<unsigned, const char *> bands[] = {
-        { 1, "A faint taint" }, { 4, "A faint taint" }, { 5, "Dark shapes" },
-        { 8, "Dark shapes" }, { 9, "An evil host" }, { 12, "An evil host" },
-        { 13, "A great horde" }, { 40, "A great horde" },
+        { 1, "A faint stench" }, { 4, "A faint stench" }, { 5, "Shadows gathered" },
+        { 8, "Shadows gathered" }, { 9, "War drums" }, { 12, "War drums" },
+        { 13, "A dark host" }, { 16, "A dark host" }, { 17, "A horde of evil" },
+        { 40, "A horde of evil" },
     };
     for (const auto &[count, words] : bands) {
         for (auto &sample : enemy_presence_samples)
@@ -121,15 +122,23 @@ int main()
         enemy_presence_samples[0] = { fake_now, 0, count };
         assert(report(&good).find(words) != std::string::npos);
     }
-    enemy_presence_samples[0] = { fake_now, 13, 0 };
-    assert(report(&evil).find("A shining host of the light") != std::string::npos);
+    const std::pair<unsigned, const char *> good_bands[] = {
+        { 0, "No do-gooder" }, { 1, "A few self-righteous fools" }, { 4, "A few self-righteous fools" },
+        { 5, "Bands of meddling" }, { 8, "Bands of meddling" }, { 9, "Banners of the light" },
+        { 12, "Banners of the light" }, { 13, "An army of the light" },
+        { 16, "An army of the light" }, { 17, "A shining host" }, { 40, "A shining host" },
+    };
+    for (const auto &[count, words] : good_bands) {
+        enemy_presence_samples[0] = { fake_now, count, 0 };
+        assert(report(&evil).find(words) != std::string::npos);
+    }
 
     // Samples older than an hour drop out of the rolling window.
     for (auto &sample : enemy_presence_samples)
         sample = {};
     enemy_presence_samples[3] = { fake_now - 3600, 0, 20 };
     enemy_presence_samples[4] = { fake_now - 3599, 0, 2 };
-    assert(report(&good).find("A faint taint") != std::string::npos);
+    assert(report(&good).find("A faint stench") != std::string::npos);
     assert(report(&good).find("(Scouts reported 59 minutes ago.)") != std::string::npos);
     enemy_presence_samples[4] = {};
     assert(report(&good).empty());
@@ -147,7 +156,7 @@ int main()
     }
     assert(enemy_presence_next == 1);
     fake_now -= 300;
-    assert(report(&good).find("A faint taint") != std::string::npos);
+    assert(report(&good).find("A faint stench") != std::string::npos);
     puts("enemy presence cases passed");
 }
 """.replace("@PRESENCE@", presence).replace("@MORPH@", morph)
