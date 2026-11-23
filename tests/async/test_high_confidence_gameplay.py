@@ -153,7 +153,7 @@ void affect_remove(P_char ch, affected_type *af) {
         if (*p == af) { *p = af->next; delete af; return; }
     assert(false);
 }
-void update_group_vitals(P_char) {}
+void update_group_vitals(P_char, bool) {}
 void gmcp_char_vitals(P_char) {}
 bool has_aura(P_char, int) { return false; }
 int aura_mod(P_char, int) { return 0; }

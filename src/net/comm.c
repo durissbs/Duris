@@ -3920,6 +3920,8 @@ void close_socket(struct descriptor_data *d)
 	telnet_free_output(d);
 	if (d->msp_group_output)
 		FREE(d->msp_group_output);
+	if (d->msp_automap_output)
+		FREE(d->msp_automap_output);
 
 	if (d)
 	{

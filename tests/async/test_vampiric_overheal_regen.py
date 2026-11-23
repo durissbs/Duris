@@ -71,6 +71,12 @@ bool IS_OUTDOORS(int) { return false; }
 int char_in_list(const P_char) { return 1; }
 void die(P_char, P_char) { assert(false && "the over-cap test must not enter death"); }
 void gmcp_char_vitals(P_char) {}
+// MSP group frames: regeneration losses redraw, gains do not.
+static int vitals_updates = 0, msp_frames = 0;
+void update_group_vitals(P_char, bool msp_frame) {
+    ++vitals_updates;
+    msp_frames += msp_frame;
+}
 
 nevent_schedule_result add_event(event_func, int, P_char, P_char, P_obj, int,
                                  const void *data, int data_size) {
@@ -123,6 +129,7 @@ int main() {
     // rather than being normalized to 100 on the first negative tick.
     assert(hit_regen(&ch, false) < 0);
     run_pulses(&ch, -1, 600, state);
+    assert(vitals_updates > 0 && msp_frames == vitals_updates);
     assert(GET_HIT(&ch) < 115);
     assert(GET_HIT(&ch) > GET_MAX_HIT(&ch));
     const int after_first_decay = GET_HIT(&ch);
@@ -134,7 +141,9 @@ int main() {
     ch.points.hit = 99;
     state = {0.0f, ne_event_tick};
     assert(hit_regen(&ch, false) > 0);
+    vitals_updates = msp_frames = 0;
     run_pulses(&ch, 1, 600, state);
+    assert(vitals_updates > 0 && msp_frames == 0);
     assert(GET_HIT(&ch) == GET_MAX_HIT(&ch));
 
     std::puts("vampiric over-cap decay and ordinary healing cap regressions passed");

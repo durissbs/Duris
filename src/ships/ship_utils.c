@@ -79,7 +79,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include "net/gmcp.h" // for GMCP_ENABLED macro
 #include "world/graph.h"
 #include "world/map.h"
 #include "item/objmisc.h"
@@ -298,8 +297,7 @@ P_ship get_ship_from_owner(char *ownername)
  * Show `ch` the world outside the ship -- the ocean map around ship->location.
  *
  * Temporarily raises ch's z coordinate so tall hulls (cruisers, dreadnoughts)
- * and flying ships see further, then restores it.  GMCP-capable clients are
- * additionally sent a Room.Map package before the textual look.
+ * and flying ships see further, then restores it.
  *
  * `ch` need not be on the bridge, or even aboard; the caller decides who is
  * entitled to a view.
@@ -313,17 +311,7 @@ void look_out_ship(P_ship ship, P_char ch)
 	if (SHIP_FLYING(ship))
 		ch->specials.z_cord = 4;
 
-	// For WebSocket/GMCP clients, send ocean map via GMCP
-	// display_map_room will skip text output but send Room.Map GMCP
-	if (ch->desc && GMCP_ENABLED(ch) && IS_MAP_ROOM(ship->location))
-	{
-		int n = map_view_distance(ch, ship->location);
-		if (n > 1)
-		{
-			display_map_room(ch, ship->location, n, MAP_IGNORE_TOGGLE, 0);
-		}
-	}
-
+	// new_look() draws the outside map, which also sends GMCP clients Room.Map.
 	new_look(ch, 0, CMD_LOOKOUT, ship->location);
 	ch->specials.z_cord = saved_z_cord;
 }

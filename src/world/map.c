@@ -4,6 +4,7 @@
  *  Copyright  1995 - Duris Systems Ltd.                                   *
  ***************************************************************************
  */
+#include <string>
 #include <list>
 #include <math.h>
 #include <stdio.h>
@@ -844,6 +845,31 @@ static inline void append_fmt(char (&dst)[N], int shift, const char *fmt, Args..
 	snprintf(dst + len, N - len, fmt, args...);
 }
 
+/* Send one MSP map frame. Automatic refreshes are requested whenever anything
+ * leaves or enters a tile in view, so one identical to the last automatic frame
+ * is skipped. A <map> frame clears that memory: the client may now show it. */
+static void send_msp_map(P_char ch, const std::string &body, bool automatic)
+{
+	P_desc d = ch->desc;
+	if (automatic && d->msp_automap_output && body == d->msp_automap_output)
+		return;
+	if (d->msp_automap_output)
+		FREE(d->msp_automap_output);
+	if (automatic)
+		d->msp_automap_output = str_dup(body.c_str());
+
+	send_to_char(automatic ? "<automap>\n" : "\n<map>\n", ch, LOG_NONE);
+	// One line per send, as before: a whole map can pass write_to_q's limit.
+	for (size_t start = 0; start < body.size();)
+	{
+		size_t end = body.find('\n', start);
+		end = end == std::string::npos ? body.size() : end + 1;
+		send_to_char(body.substr(start, end - start).c_str(), ch);
+		start = end;
+	}
+	send_to_char(automatic ? "\n</automap>\n" : "\n</map>\n", ch, LOG_NONE);
+}
+
 void display_map_room(P_char ch, int from_room, int n, int show_map_regardless, int gmcp_pkg_type)
 {
 	int x, y, what, heading;
@@ -875,24 +901,11 @@ void display_map_room(P_char ch, int from_room, int n, int show_map_regardless, 
 		 (ch->desc->term_type != TERM_MSP)) ||
 		(GMCP_ENABLED(ch) && toggle_map_off && show_map_regardless != MAP_IGNORE_TOGGLE);
 
-	if (!skip_text_output)
-	{
-		if (ch->desc->term_type == TERM_MSP)
-		{
-			if (show_map_regardless != MAP_AUTOMAP)
-			{
-				send_to_char("\n<map>\n", ch, LOG_NONE);
-			}
-			else
-			{
-				send_to_char("<automap>\n", ch, LOG_NONE);
-			}
-		}
-		else
-		{
-			send_to_char("&n \n", ch);
-		}
-	}
+	// MSP frames are built first so an unchanged automatic map can be skipped.
+	const bool msp_text = !skip_text_output && ch->desc->term_type == TERM_MSP;
+	std::string msp_body;
+	if (!skip_text_output && !msp_text)
+		send_to_char("&n \n", ch);
 
 	horizontal_factor = get_property("map.horizontalFactor", 0.6);
 	vertical_factor = get_property("map.verticalFactor", 1.2);
@@ -972,34 +985,28 @@ void display_map_room(P_char ch, int from_room, int n, int show_map_regardless, 
 					line.push_back(symb[heading]);
 					break;
 
-				default: // forest/etc: pick randomly
-					line.push_back(symb[number(0, static_cast<int>(nv) - 1)]);
+				default: // forest/etc: a fixed variant per room, so redraws match
+					line.push_back(symb[(static_cast<unsigned>(where_rnum) *
+								     2654435761u >>
+							     16) %
+							    nv]);
 				}
 		}
 
 		line.push_back('\n');
 		line.ansi(buf);
 
-		if (!skip_text_output)
-		{
+		if (msp_text)
+			msp_body += buf;
+		else if (!skip_text_output)
 			send_to_char(buf, ch);
-		}
 
 		/* Accumulate for GMCP (without leading spaces that terminal uses) */
 		append_cstr(gmcp_map_buf, buf);
 	}
 
-	if (!skip_text_output && ch->desc->term_type == TERM_MSP)
-	{
-		if (show_map_regardless != MAP_AUTOMAP)
-		{
-			send_to_char("\n</map>\n", ch, LOG_NONE);
-		}
-		else
-		{
-			send_to_char("\n</automap>\n", ch, LOG_NONE);
-		}
-	}
+	if (msp_text)
+		send_msp_map(ch, msp_body, show_map_regardless == MAP_AUTOMAP);
 
 	/* Send map via GMCP for WebSocket clients */
 	if (GMCP_ENABLED(ch) && gmcp_map_buf[0] != '\0')

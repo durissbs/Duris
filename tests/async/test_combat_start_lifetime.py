@@ -116,7 +116,7 @@ void act(const char *, int, P_char, P_obj, void *, int) {}
 void logit(const char *, const char *, ...) { std::abort(); }
 void event_water_crossing(P_char, P_char, P_obj, void *) {}
 void disarm_char_nevents(P_char, event_func) {}
-void update_group_vitals(P_char) {}
+void update_group_vitals(P_char, bool) {}
 void gmcp_char_vitals(P_char) {}
 void gmcp_combat_target(P_char, P_char) {}
 void gmcp_mark_room_dirty(int) {}
