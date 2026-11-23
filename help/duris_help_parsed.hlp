@@ -25,13 +25,15 @@ threatens the balance of all, heavenly and mortal alike.
 #0
 
 Charisma
-Charisma - Last Edited: 2014-07-25 18:10:54 by lohrr
-====================================================
+Charisma - Last Edited: 2026-11-24
+==================================
 Charisma is a combination of both appearance and force of personality. High
 charisma is the mark of leaders and persuaders of all types. Charisma is
 one of the major attributes for Paladins and Conjurers.
 A high charisma also has a calming effect on aggressive monsters, allowing you
 to pass by them if you are fast enough.
+In shops, higher charisma gets better prices when buying and selling, up to
+10%. Read help sell and help buy.
 
 ==See also==
 
@@ -4061,11 +4063,12 @@ Dig
 #0
 
 Buy
-Buy - Last Edited: 2014-09-11 01:08:14 by lohrr
-===============================================
+Buy - Last Edited: 2026-11-24
+=============================
 These commands are used for making purchases or selling items in the various shops
-found around Duris. The prices in these shops will be affected slightly by how
-personable you are and how charismatic you are.
+found around Duris. Higher charisma lowers shop prices, by up to 10%. Shopkeepers
+of another race give half that discount. Low charisma raises prices.
+Anything you buy in a shop cannot be sold back to a shop.
 You can now buy <item> <container> <quantity> to buy up to 9 of an item at a time.
 Note: This doesn't work at the epic shop, as it's a special shop.
 
@@ -23057,12 +23060,22 @@ own.
 #0
 
 Sell
-Sell - Last Edited: 2007-04-22 22:12:53 by Unknown
-==================================================
-buy <item> <seller>
-or
-sell <item> <seller>
-These commands are used for making purchases or selling items in the various shops found around Duris.  The prices in these shops will be affected slightly by how personable you are and how charismatic you are.
+Sell - Last Edited: 2026-11-24
+==============================
+sell <item> [seller]
+Sell an item to a shopkeeper. Use value <item> first to hear the offer.
+
+The price depends on the shop and your charisma. Higher charisma gets a
+better price, up to 10% more. Shopkeepers of another race give half that
+bonus. Low charisma lowers the price.
+
+Each recent sale of the same item anywhere in the game lowers its price by
+5%, down to a tenth of its normal price. The shopkeeper warns you when an
+item is rather common. These counts start again at every reboot.
+
+Shops do not buy back anything bought in a shop. Looted and farmed items,
+and guild-store gear, can still be sold. A shop keeps one copy of each item
+it buys.
 
 ==See also==
 
