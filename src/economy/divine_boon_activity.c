@@ -210,6 +210,7 @@ divine_boon_activity_history::population(const std::vector<divine_boon_actor> &c
 				       player.level <= 50 ? 2 :
 							    3;
 		++side.brackets[bracket];
+		side.active_levels.push_back(player.level);
 		unsigned minutes = 0;
 		int64_t first = entry.last;
 		for (int64_t sample : entry.minutes)

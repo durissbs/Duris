@@ -38,6 +38,8 @@ using namespace std;
 #include "world/events.h"
 #include "cmd/interp.h"
 #include "core/utility.h"
+#include "economy/divine_boon_activity.h"
+#include <chrono>
 #include "core/utils.h"
 #include "item/storage_lockers.h"
 #include "combat/ctf.h"
@@ -7560,6 +7562,108 @@ static void list_snoopers(P_char ch, P_desc d, char *who_output)
 	}
 }
 
+// Opposing-side presence for who. Every five minutes, record each side's
+// active mortal accounts: online, not AFK, with a state-changing command in
+// the last 15 minutes, counted once per account, level 30 and up. Linkdead,
+// AFK, idle and staff-account characters are excluded by the divine boon
+// activity tracker. Who reports the peak of the samples from the last hour.
+struct enemy_presence_sample
+{
+	int64_t taken_at = -1;
+	unsigned good = 0, evil = 0;
+};
+static std::array<enemy_presence_sample, 12> enemy_presence_samples;
+static size_t enemy_presence_next = 0;
+
+static int64_t enemy_presence_clock()
+{
+	return std::chrono::duration_cast<std::chrono::seconds>(
+		       std::chrono::steady_clock::now().time_since_epoch())
+		.count();
+}
+
+static unsigned enemy_presence_count(const divine_boon_population &side)
+{
+	return static_cast<unsigned>(std::count_if(side.active_levels.begin(),
+						   side.active_levels.end(),
+						   [](uint16_t level) { return level >= 30; }));
+}
+
+void sample_enemy_presence()
+{
+	static int64_t due = -1;
+	const int64_t now = enemy_presence_clock();
+	// Activity history is in memory only, so give players time to act after a boot.
+	if (due < 0)
+		due = now + 300;
+	if (now < due)
+		return;
+	due = now + 300;
+	const auto population = divine_boon_activity_population();
+	enemy_presence_samples[enemy_presence_next] = { now, enemy_presence_count(population[0]),
+							enemy_presence_count(population[1]) };
+	enemy_presence_next = (enemy_presence_next + 1) % enemy_presence_samples.size();
+}
+
+static void append_enemy_presence(P_char ch, char *out, size_t size, int64_t now)
+{
+	static const char *const seen_by_good[] = {
+		"&+wThe land lay quiet; no taint of darkness was felt.&n",
+		"&+rA faint stench of evil drifted on the wind.&n",
+		"&+rShadows gathered at the edges of the realm; evil was on the move.&n",
+		"&+RWar drums echoed as the forces of darkness mustered.&n",
+		"&+RA dark host marched openly across the land.&n",
+		"&+RA horde of evil beyond counting blackened the land!&n",
+	};
+	static const char *const seen_by_evil[] = {
+		"&+wNo do-gooder dared show their face.&n",
+		"&+yA few self-righteous fools wandered where they did not belong.&n",
+		"&+yBands of meddling do-gooders roamed the land.&n",
+		"&+YBanners of the light rose as the do-gooders gathered their strength.&n",
+		"&+YAn army of the light marched openly, hymns ringing across the realm.&n",
+		"&+YA shining host beyond counting flooded the realm!&n",
+	};
+	// A morphed or switched player types who through a mob body with no side.
+	P_char viewer = GET_PLYR(ch);
+	const bool trusted = IS_TRUSTED(viewer);
+	if (!trusted && !IS_RACEWAR_GOOD(viewer) && !IS_RACEWAR_EVIL(viewer))
+		return;
+	unsigned good = 0, evil = 0;
+	int64_t latest = -1;
+	for (const auto &sample : enemy_presence_samples)
+	{
+		if (sample.taken_at < 0 || now < sample.taken_at || now - sample.taken_at >= 3600)
+			continue;
+		good = MAX(good, sample.good);
+		evil = MAX(evil, sample.evil);
+		latest = MAX(latest, sample.taken_at);
+	}
+	if (latest < 0)
+		return;
+	const long minutes = static_cast<long>((now - latest) / 60);
+	if (trusted)
+	{
+		checked_snprintf(
+			out + strlen(out), size - strlen(out),
+			"&+rPeak active mortals (30+) in the last hour: %u &+Revil&n&+r, %u "
+			"&+Ygood&n&+r (sampled %ld min ago).&n\n",
+			evil, good, minutes);
+		return;
+	}
+	const bool viewer_good = IS_RACEWAR_GOOD(viewer);
+	const unsigned peak = viewer_good ? evil : good;
+	const int band = peak == 0  ? 0 :
+			 peak <= 4  ? 1 :
+			 peak <= 8  ? 2 :
+			 peak <= 12 ? 3 :
+			 peak <= 16 ? 4 :
+				      5;
+	checked_snprintf(out + strlen(out), size - strlen(out),
+			 "%s &+L(Scouts reported %ld minute%s ago.)&n\n",
+			 (viewer_good ? seen_by_good : seen_by_evil)[band], minutes,
+			 minutes == 1 ? "" : "s");
+}
+
 void do_who(P_char ch, char *argument, int /*cmd*/)
 {
 	P_char who_list[MAX_WHO_PLAYERS], who_gods[MAX_WHO_PLAYERS];
@@ -8050,14 +8154,8 @@ void do_who(P_char ch, char *argument, int /*cmd*/)
 					MAX_STRING_LENGTH - strlen(who_output),
 					"&+rPeak simultaneous connections in the previous completed hour: %d.&n\n",
 					max_descs_previous_hour);
-			if ((curr_ingame_good > 0) && !IS_RACEWAR_GOOD(ch) && !IS_TRUSTED(ch))
-				checked_snprintf(who_output + strlen(who_output),
-						 MAX_STRING_LENGTH - strlen(who_output),
-						 "There are &+Ygood(s)&N online.\n");
-			if ((curr_ingame_evil > 0) && !IS_RACEWAR_EVIL(ch) && !IS_TRUSTED(ch))
-				checked_snprintf(who_output + strlen(who_output),
-						 MAX_STRING_LENGTH - strlen(who_output),
-						 "There are &+Revil(s)&N online.\n");
+			append_enemy_presence(ch, who_output, MAX_STRING_LENGTH,
+					      enemy_presence_clock());
 		}
 		send_to_char(who_output, ch, LOG_NONE);
 		strcpy(who_output, "");

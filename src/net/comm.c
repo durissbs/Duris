@@ -1755,6 +1755,7 @@ static bool run_connection_phase(game_loop_pulse_context &ctx)
 	update_completed_hour_connection_peak(time(0), loop_monotonic_us(),
 					      last_desc_per_hour_reset,
 					      last_desc_per_hour_reset_us);
+	sample_enemy_presence();
 	/*
 	    struct host_answer host_ans_buf;
 	*/
