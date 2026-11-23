@@ -2372,6 +2372,39 @@ static void run_event_phase(game_loop_pulse_context &ctx)
 	ctx.ne_events_us = ne_events_us;
 }
 
+/* While ANNOUNCE_FILE has text, send it to every player in the game once an
+ * hour, starting at boot. Delete the file to stop. */
+static void announce_pulse(void)
+{
+	static time_t next_announce = 0;
+	const time_t now = time(0);
+
+	if (now < next_announce)
+		return;
+	next_announce = now + 60 * 60;
+
+	FILE *f = fopen(ANNOUNCE_FILE, "r");
+	if (!f)
+		return;
+	char text[MAX_STRING_LENGTH];
+	const size_t len = fread(text, 1, sizeof text - 1, f);
+	fclose(f);
+	text[len] = '\0';
+	if (!*text)
+		return;
+
+	int players = 0;
+	for (P_desc d = descriptor_list; d; d = d->next)
+	{
+		if (d->connected == CON_PLAYING && d->character)
+		{
+			send_to_char(text, d->character);
+			players++;
+		}
+	}
+	logit(LOG_STATUS, "Hourly announcement sent to %d players.", players);
+}
+
 static void run_recurring_persistence_phase(game_loop_pulse_context &ctx)
 {
 	const uint64_t loop_tick = ctx.loop_tick;
@@ -2502,6 +2535,8 @@ static void run_recurring_persistence_phase(game_loop_pulse_context &ctx)
 	{
 		sql_mud_info_refresh();
 		record_job("sql_mud_info_refresh");
+		announce_pulse();
+		record_job("announce_pulse");
 	}
 	maintenance_result maintenance_results[MAINTENANCE_COMPLETION_MAX] = {};
 	const size_t maintenance_count = maintenance_scheduler_pulse(
