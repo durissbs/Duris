@@ -319,12 +319,14 @@ int main(int argc, char **argv)
 	if (std::string(argv[1]) == "protocol")
 	{
 		static_assert(offsetof(copyover_desc, mxp_enabled) == 808);
+		static_assert(offsetof(copyover_desc, msp_group_manual) == 816);
 		for (unsigned char state : { MXP_OFF, MXP_SENT_DO, MXP_SENT_WILL, MXP_ENABLED })
 		{
 			descriptor_data connection{};
 			connection.descriptor = 17;
 			connection.mxp_state = state;
 			connection.gmcp_enabled = 1;
+			connection.msp_group_manual = state == MXP_ENABLED;
 			FILE *record = tmpfile();
 			assert(record && write_desc_entry(record, &connection));
 			rewind(record);
@@ -332,12 +334,14 @@ int main(int argc, char **argv)
 			assert(fread(&saved, sizeof saved, 1, record) == 1 && fclose(record) == 0);
 			assert(saved.fd == 17 && saved.gmcp_enabled == 1);
 			assert(saved.mxp_enabled == (state == MXP_ENABLED));
+			assert(saved.msp_group_manual == (state == MXP_ENABLED));
 		}
 		copyover_desc desc{};
 		desc.fd = 17;
 		strcpy(desc.player_name, "Tester");
 		desc.gmcp_enabled = 1;
 		desc.mxp_enabled = 1;
+		desc.msp_group_manual = 1;
 		desc.gmcp_supports = 7;
 		desc.gmcp_interests = 2;
 		desc.gmcp_session_generation = 9007199254740993ULL;
@@ -358,8 +362,11 @@ int main(int argc, char **argv)
 			assert(decoded.fd == 17 && decoded.gmcp_enabled == 1 &&
 			       !strcmp(decoded.player_name, "Tester"));
 			assert(decoded.mxp_enabled == (version >= 22 ? 1 : 0));
+			assert(decoded.msp_group_manual == (version >= 23 ? 1 : 0));
 			if (version == 21)
 				assert(copyover_desc_bytes_for_version(version) == 808);
+			if (version == 22)
+				assert(copyover_desc_bytes_for_version(version) == 816);
 			if (version < 18)
 				assert(!decoded.gmcp_supports && !decoded.gmcp_session_context[0] &&
 				       !decoded.gmcp_session_generation);
@@ -376,6 +383,10 @@ int main(int argc, char **argv)
 		}
 		auto invalid = desc;
 		invalid.mxp_enabled = 2;
+		write_bytes(path, descriptor_image(COPYOVER_VERSION, invalid));
+		assert(copyover_read_file(path, &snapshot) == copyover_boot_result::failed);
+		invalid = desc;
+		invalid.msp_group_manual = 2;
 		write_bytes(path, descriptor_image(COPYOVER_VERSION, invalid));
 		assert(copyover_read_file(path, &snapshot) == copyover_boot_result::failed);
 		invalid = desc;

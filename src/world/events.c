@@ -208,7 +208,7 @@ void event_move_regen(P_char ch, P_char /*victim*/, P_obj /*obj*/, void *data)
 		     GET_VITALITY(ch) < GET_MAX_VITALITY(ch)))
 			GET_VITALITY(ch) = GET_MAX_VITALITY(ch);
 		state.accumulated -= (float)regen_value_int;
-		update_group_vitals(ch, false);
+		update_group_vitals(ch, regen_value_int < 0);
 		gmcp_char_vitals(ch);
 	}
 	// Full: the next run would only return. Half of every tick's 24,000 regeneration
@@ -259,7 +259,7 @@ void event_hit_regen(P_char ch, P_char /*victim*/, P_obj /*obj*/, void *data)
 		if (regen_value_int > 0 && GET_HIT(ch) > GET_MAX_HIT(ch))
 			GET_HIT(ch) = GET_MAX_HIT(ch);
 		state.accumulated -= (float)regen_value_int;
-		update_group_vitals(ch, false);
+		update_group_vitals(ch, regen_value_int < 0);
 		gmcp_char_vitals(ch);
 	}
 

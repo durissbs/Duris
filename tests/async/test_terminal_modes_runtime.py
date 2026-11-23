@@ -433,6 +433,8 @@ int main()
     update_group_vitals(&member);
     assert(!d.last_group_update);
     d.prompt_mode = false;
+    update_group_vitals(&actor, false); // Regeneration gains do not force a prompt.
+    assert(!d.prompt_mode && !d.last_group_update);
     update_group_vitals(&actor);
     assert(d.prompt_mode && !d.last_group_update);
     update_groupies(&member);

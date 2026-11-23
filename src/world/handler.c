@@ -1612,6 +1612,9 @@ bool char_to_room(P_char ch, int room, int dir, bool ordinary_movement)
 			send_to_char(temp_buffer, ch);
 			send_to_char("\n</map>\n", ch);
 			ch->desc->last_map_update = 0;
+			// The client may show this in place of the last <automap>.
+			if (ch->desc->msp_automap_output)
+				FREE(ch->desc->msp_automap_output);
 		}
 	}
 

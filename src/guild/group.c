@@ -987,12 +987,13 @@ void update_groupies(P_char ch, bool only_in_room)
 
 // Resource changes affect MSP rows only when the member is in the recipient's room.
 // Keep remote structured vitals delivery without rebuilding an unchanged MSP frame.
-// Regeneration passes msp_frame = false: its one-point steps would otherwise send
-// a whole MSP group frame several times a second; GMCP clients still get them.
+// Regeneration gains pass msp_frame = false: their one-point steps would otherwise
+// send a whole MSP group frame (or, in quiet mode, a prompt) several times a second.
+// GMCP clients still get them. Losses, such as bleeding out, still redraw.
 void update_group_vitals(P_char ch, bool msp_frame)
 {
 	// Prompt-based health checkers still need current self vitals in quiet mode.
-	if (ch->desc && ch->desc->term_type == TERM_MSP && ch->desc->msp_group_manual)
+	if (msp_frame && ch->desc && ch->desc->term_type == TERM_MSP && ch->desc->msp_group_manual)
 		ch->desc->prompt_mode = TRUE;
 	for (struct group_list *gl = ch->group; gl; gl = gl->next)
 	{

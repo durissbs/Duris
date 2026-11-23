@@ -20,7 +20,7 @@ const char *copyover_state_file();
 #define COPYOVER_FILE copyover_state_file()
 #define COPYOVER_MAGIC "COPY"
 #define COPYOVER_PLAYERS_MAGIC "CPYP" // same records, without the live world
-#define COPYOVER_VERSION 22 // appends MXP state; reads native records 12-21
+#define COPYOVER_VERSION 23 // appends quiet MSP group mode; reads native records 12-22
 
 // copyover file header
 struct copyover_header
@@ -83,6 +83,8 @@ struct copyover_desc
 	int ship_room_slot;
 	// v22 starts after the complete v20/v21 record, including tail padding.
 	alignas(uint64_t) unsigned char mxp_enabled;
+	// v23 starts after the complete v22 record, including tail padding.
+	alignas(uint64_t) unsigned char msp_group_manual;
 };
 
 // mob state for copyover
