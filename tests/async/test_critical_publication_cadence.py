@@ -73,6 +73,7 @@ static void arti_cache_retry() {} // Not part of the publication order under tes
 SPY(combat_outcome_transaction_pulse)
 SPY(frag_cap_runtime_pulse)
 SPY(sql_mud_info_refresh)
+SPY(announce_pulse)
 static void divine_boon_selection_pulse(int64_t) { calls.emplace_back("selection"); }
 static size_t player_load_pipeline_pulse(player_load_result *, size_t) {
     calls.emplace_back("loads"); return 0;
