@@ -30,6 +30,8 @@ harness = r'''
 #include "net/ttype.h"
 #include "net/gmcp.h"
 #include "net/mxp.h"
+#include "economy/divine_boon_activity.h"
+#include <chrono>
 #include <cassert>
 #include <climits>
 #include <cstring>
@@ -100,6 +102,8 @@ copyover_recover_fail:
 
 @MORPH@
 @VISIBLE@
+std::array<divine_boon_population, 2> divine_boon_activity_population() { return {}; }
+@PRESENCE@
 @SET_CONTENT@
 @STATUS@
 @LEGACY@
@@ -341,6 +345,9 @@ for marker, code in {
     '@STATUS@': extract_function('maintenance_snapshot.c', 'bool prepare_web_status('),
     '@LEGACY@': extract_function('actinf.c', 'void web_info('),
     '@SUMMARY@': summary,
+    '@PRESENCE@': (lambda text: text[text.index('// Opposing-side presence for who.'):
+                                     text.index('void do_who(')])(
+        (SRC / 'actinf.c').read_text(encoding='utf-8')),
     '@ONE_ARGUMENT@': extract_function('interp.c', 'char *one_argument('),
     '@IS_ABBREV@': extract_function('interp.c', 'bool is_abbrev('),
     '@FLAG2IDX@': extract_function('utility.c', 'int flag2idx('),
