@@ -17,6 +17,7 @@
 #include "economy/currency_transaction.h"
 #include "economy/shop.h"
 #include "economy/shop_price.h"
+#include "kingdom/kingdom_store_piece.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -72,6 +73,13 @@ static float player_buy_factor(P_char ch, P_char keeper, int shop_nr)
 		shop_index[shop_nr].sell_percent,
 		shop_charisma_bonus(cha_app[STAT_INDEX(MIN(100, GET_C_CHA(ch)))].modifier,
 				    GET_RACE(ch) == GET_RACE(keeper), false));
+}
+
+// Shops never buy back goods bought in a shop, so no discount can fund buying here and
+// selling elsewhere. Guild-store gear is priced to resell at a tenth, so it still sells.
+static bool shop_refuses_resale(P_obj obj)
+{
+	return IS_OBJ_STAT2(obj, ITEM2_STOREITEM) && !kingdom_store_piece(obj);
 }
 
 struct produced_purchase_batch
@@ -987,6 +995,14 @@ void shopping_sell(char *arg, P_char ch, P_char keeper, int shop_nr)
 		return;
 	}
 
+	if (shop_refuses_resale(temp1))
+	{
+		snprintf(Gbuf1, MAX_STRING_LENGTH, "%s I don't buy back goods sold in a shop.",
+			 GET_NAME(ch));
+		do_tell(keeper, Gbuf1, 0);
+		return;
+	}
+
 	/* patch to avoid selling containers full of stuff.  JAB */
 	if ((temp1->type == ITEM_CONTAINER || temp1->type == ITEM_STORAGE) && temp1->contains)
 	{
@@ -1133,6 +1149,14 @@ void shopping_value(char *arg, P_char ch, P_char keeper, int shop_nr)
 			wizlog(56, "ARTIFACT: (%s) tried to value (%s) at (%s).", GET_NAME(ch),
 			       (temp1->short_description), GET_NAME(keeper));
 
+		return;
+	}
+
+	if (shop_refuses_resale(temp1))
+	{
+		snprintf(Gbuf1, MAX_STRING_LENGTH, "%s I don't buy back goods sold in a shop.",
+			 GET_NAME(ch));
+		do_tell(keeper, Gbuf1, 0);
 		return;
 	}
 
