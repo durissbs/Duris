@@ -25,7 +25,7 @@ const revision =
   }).trim();
 const branch = "master";
 const github = `https://github.com/${repository}`;
-const mainWebsite = "https://duris.sbs/";
+const mainWebsite = "https://playduris.com/";
 const catalog = JSON.parse(
   await readFile(path.join(here, "catalog.json"), "utf8"),
 );

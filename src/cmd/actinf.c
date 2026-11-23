@@ -9036,7 +9036,7 @@ void do_news(P_char ch, char * /*argument*/, int /*cmd*/)
 	constexpr size_t max_news_bytes = 50000;
 	const std::string header = "&+WDuris News\n\n";
 	const std::string footer = "\n&nRead the full news archive on the website:\n"
-				   "&+Chttps://duris.sbs/news?tab=mud&n\n";
+				   "&+Chttps://playduris.com/news?tab=mud&n\n";
 	const size_t body_limit = max_news_bytes - header.size() - footer.size();
 	size_t length = news.text.size();
 	if (length > body_limit)

@@ -117,7 +117,7 @@ static void news_prompt_matrix()
 
 	// The MUD view includes its heading and web footer in the 50,000-byte cap.
 	const std::string header = "&+WDuris News\n\n";
-	const std::string web_link = "https://duris.sbs/news?tab=mud";
+	const std::string web_link = "https://playduris.com/news?tab=mud";
 	const std::string short_news = "Short news.\n";
 	assert(publish_news(short_news));
 	assert(read().find(web_link) != std::string::npos);

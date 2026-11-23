@@ -183,7 +183,7 @@ mud-info read. Plain `page` (no arguments) requests an immediate refresh.
 
 The in-game `news` command displays at most 50,000 bytes, including its heading,
 color tokens and website footer. It keeps the newest text, ending at a complete
-paragraph or line, and links to `https://duris.sbs/news?tab=mud` for the full archive.
+paragraph or line, and links to `https://playduris.com/news?tab=mud` for the full archive.
 The source file and database row remain complete for the website. Even an archive
 larger than the command output buffer is safe to display through this capped view.
 The unread marker still tracks the full published content, including archive edits.

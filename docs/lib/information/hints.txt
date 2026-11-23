@@ -26,7 +26,7 @@ Pay attention to what your group does. If someone does something you don't under
 Boats are sold in many hometowns. These will allow you to cross rivers and other bodies of water.
 Walking around in the dark? Buy a torch or lantern and hold it, or ask a cleric to cast continual light on a piece of your equipment.
 Without ultravision or infravision, you will need a light source to see outdoors at night. You can use the time command to check whether it is night time or not.
-Visit https://duris.sbs to explore the official Duris website.
+Visit https://playduris.com to explore the official Duris website.
 If someone wants to group with you and says "f/c", that means you need to type "follow <person>" and "consent <person>".
 Your stats are shown as descriptive ratings until level 20, when their exact numbers are revealed.
 When casting offensive spells make sure you are careful about noticing new mobs entering with the same target name.
@@ -124,17 +124,17 @@ Looking for allies? Type "society" for guild commands and read "help guild" to l
 Running out of room? Lockers in the hometowns can hold your spare equipment. Read "help locker" to learn how to use them.
 Level cap holding you back? PvP frags decide how far each side can climb. Type "fraglist" for the standings and read "help level cap".
 Type "achievements zones" to see how many quests you have completed in each zone.
-Duris has a fully developed and supported client for Mudlet. Visit https://duris.sbs/mudlet-gui to get it.
+Duris has a fully developed and supported client for Mudlet. Visit https://playduris.com/mudlet-gui to get it.
 Visit https://discord.gg/e3XE4Yvpz5 to join the Duris Discord server and chat with other players.
-Visit https://duris.sbs/news to read all the latest news, including changes to the game, the website and the Mudlet client.
-Did you know that your game account also works on the website? Visit https://duris.sbs/login to sign in and use the forum, or visit https://duris.sbs/play to play Duris in your web browser.
-New to Duris? Visit https://duris.sbs/newbie to read the newbie guide.
-Did you know that you can look up the details of player fights online? Visit https://duris.sbs/pvp to see combat logs, gear and locations.
-Curious about game statistics like class matchups and top players? Visit https://duris.sbs/pvp/stats to see them.
-Want to know when each faction is most active? Visit https://duris.sbs/statistics/faction-activity to find out.
-Want to know when rival factions are online at the same time? Visit https://duris.sbs/statistics/faction-overlap to find out.
-Want to see the deadliest players? Visit https://duris.sbs/frag-leaderboard to see the frag leaderboard.
-Need a map of the world? Visit https://duris.sbs/wiki/map to see the game maps.
+Visit https://playduris.com/news to read all the latest news, including changes to the game, the website and the Mudlet client.
+Did you know that your game account also works on the website? Visit https://playduris.com/login to sign in and use the forum, or visit https://playduris.com/play to play Duris in your web browser.
+New to Duris? Visit https://playduris.com/newbie to read the newbie guide.
+Did you know that you can look up the details of player fights online? Visit https://playduris.com/pvp to see combat logs, gear and locations.
+Curious about game statistics like class matchups and top players? Visit https://playduris.com/pvp/stats to see them.
+Want to know when each faction is most active? Visit https://playduris.com/statistics/faction-activity to find out.
+Want to know when rival factions are online at the same time? Visit https://playduris.com/statistics/faction-overlap to find out.
+Want to see the deadliest players? Visit https://playduris.com/frag-leaderboard to see the frag leaderboard.
+Need a map of the world? Visit https://playduris.com/wiki/map to see the game maps.
 A frag is a point you earn for killing a player from an enemy side. Type "fraglist" to see the top and lowest fraggers, each side's frag totals and the current level caps.
 Type "leaderboard" to see the top 20 characters in the game. Their scores come from levels, experience, player kills, ship reputation and epic points. Type "leaderboard quests" to see who has completed the most quests.
 Named gear from the same zone can grant spells starting at one piece, and matching pieces beyond the second add hit points. Keep matching random armor worn and type "namedreport" to see the spells and piece requirements.

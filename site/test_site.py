@@ -105,7 +105,7 @@ class PagesTests(unittest.TestCase):
         framed = [file for file in self.pages if 'class="site-header"' in file.read_text()]
         self.assertGreaterEqual(len(framed), len(self.catalog) + 4)
         for file in framed:
-            self.assertEqual(self.pages[file].links.count("https://duris.sbs/"), 2, file)
+            self.assertEqual(self.pages[file].links.count("https://playduris.com/"), 2, file)
 
     def test_static_reader_contains_tables_code_and_diagram_source(self):
         html = (OUTPUT / "docs/quick-start/index.html").read_text()
