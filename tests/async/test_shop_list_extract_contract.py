@@ -61,8 +61,8 @@ struct obj_data {
 struct char_data { obj_data *carrying = nullptr; };
 typedef char_data *P_char;
 typedef obj_data *P_obj;
-struct { int modifier; } cha_app[1] = {{0}};
 struct { float sell_percent; } shop_index[1] = {{1.0f}};
+float player_buy_factor(P_char, P_char, int shop) { return shop_index[shop].sell_percent; }
 const char *drinks[] = {"water"};
 std::vector<std::string> sent;
 void send_to_char(const char *text, P_char) { sent.emplace_back(text); }
