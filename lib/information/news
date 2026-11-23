@@ -50,9 +50,20 @@ Newest first; later updates replace older rules. Longer archive on web.
   numbers. Quiet MSP mode now survives in-place restarts.
 &+Y-&n Forest map tiles keep the same pattern instead of shifting on every
   redraw.
-&+Y-&n The game's home is now &+Chttps://playduris.com/&n. Staff can post
-  an hourly announcement to everyone in the game, and the message of the
-  day links to &+Chttps://github.com/durissbs/Duris&n for suggestions.
+&+Y-&n Staff can post an hourly announcement to everyone in the game, and
+  the message of the day links to &+Chttps://github.com/durissbs/Duris&n
+  for suggestions.
+
+&+R11/23/26&n &+L-&n &+YDuris has moved to playduris.com&n
+&+W----------------------------------------------------------------------&n
+
+&+CUpdate your client&n
+&+Y-&n Connect to &+Cmud.playduris.com&n port &+C7777&n (secure TLS: &+C7778&n).
+  If that does not connect, use &+C149.28.235.171&n port &+C7777&n.
+&+Y-&n The website is now &+Chttps://playduris.com&n. Old duris.sbs links
+  forward there for now, but may stop working at any time.
+&+Y-&n Your account and characters are unchanged; only the address moved.
+  Sign in to the website again at the new address.
 
 &+R11/22/26&n &+L-&n &+YLuck of the draw, and a new tavern to share it in&n
 &+W----------------------------------------------------------------------&n
