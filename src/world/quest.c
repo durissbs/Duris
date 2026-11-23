@@ -22,6 +22,7 @@
 #include "world/zone_story_quest_runtime.h"
 #include <time.h>
 #include <charconv>
+#include <cerrno>
 #include <climits>
 #include <sstream>
 
@@ -226,19 +227,28 @@ void give_reward(struct quest_complete_data *qcp, P_char mob, P_char pl)
 		{
 		case QUEST_GOAL_ITEM:
 		{
-			obj = read_object(gp->number, VIRTUAL);
+			// An artifact must claim its identity here, or the next login drops it.
+			errno = 0;
+			obj = read_object_for_creation(gp->number, VIRTUAL);
 
 			if (!obj)
 			{
+				const int error = errno;
 				logit(LOG_DEBUG, "give_reward(): obj %d not loadable", gp->number);
-				break;
-			}
-
-			// No duplicating artifacts.
-			if (get_artifact_data_sql(OBJ_VNUM(obj), NULL))
-			{
-				// It's imperative that we extract FALSE (no poofing arti data)..
-				extract_obj(obj);
+				if (error == EEXIST || error == ENODATA || error == ENOMEM)
+				{
+					const char *reason =
+						error == EEXIST ? "already present or reserved" :
+						error == ENOMEM ? "temporarily unavailable" :
+								  "identity unresolved";
+					send_to_char_f(
+						pl,
+						"Your reward is an artifact that could not be created (%s), so it was not given. Reference: artifact_identity/create.\r\n",
+						reason);
+					statuslog(58,
+						  "%s's quest reward artifact [%d] was refused: %s",
+						  GET_NAME(pl), gp->number, reason);
+				}
 				break;
 			}
 
