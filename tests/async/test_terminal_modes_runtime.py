@@ -301,6 +301,22 @@ int main()
     }
     d.term_type = TERM_MSP; d.gmcp_enabled = false;
     actor.specials.act = PLR_MAP;
+    // An automatic MSP map identical to the last one sent is skipped, until a
+    // <map> frame may have replaced it on the client.
+    if (d.msp_automap_output) FREE(d.msp_automap_output);
+    output.clear();
+    display_map_room(&actor, 1, 3, MAP_AUTOMAP, 0);
+    const std::string automap = output;
+    assert(automap.find("<automap>") != std::string::npos);
+    output.clear();
+    display_map_room(&actor, 1, 3, MAP_AUTOMAP, 0);
+    assert(output.empty());
+    display_map_room(&actor, 1, 3, MAP_IGNORE_TOGGLE, 0);
+    assert(!d.msp_automap_output);
+    output.clear();
+    display_map_room(&actor, 1, 3, MAP_AUTOMAP, 0);
+    assert(output == automap);
+    FREE(d.msp_automap_output);
     d.last_map_update = 1; output.clear();
     map_look_room(&actor, actor.in_room, MAP_USE_TOGGLE);
     assert(!d.last_map_update && output.find("<map>") != std::string::npos);
@@ -429,6 +445,14 @@ int main()
     d.prompt_mode = false;
     update_group_vitals(&actor);
     assert(!d.prompt_mode); // Ordinary MSP retains its existing prompt policy.
+    // Regeneration keeps GMCP group vitals current but never requests an MSP frame.
+    d.last_group_update = 0;
+    update_group_vitals(&member, false);
+    assert(!d.last_group_update);
+    d.gmcp_enabled = true;
+    update_group_vitals(&member, false);
+    assert(d.last_group_update == GROUP_UPDATE_REMOTE_VITALS);
+    d.gmcp_enabled = false;
     d.last_group_update = 0;
     row_visits = 0;
     for (int tick = 0; tick < 8; ++tick) {
@@ -496,6 +520,7 @@ void do_group(P_char ch, char *, int) {
               extract_function("affects.c", "char affect_total("),
               extract_function("affects.c", "void event_balance_affects("),
               extract_function("handler.c", "P_obj unequip_char("), DERIVED_CASES,
+              extract_function("map.c", "static void send_msp_map("),
               extract_function("map.c", "void display_map_room("),
               extract_function("map.c", "void map_look_room("), CASES]
     build = ROOT / "bin/tests"

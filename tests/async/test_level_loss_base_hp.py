@@ -56,7 +56,7 @@ void update_pos(P_char) {{}}
 void check_boon_completion(P_char, P_char, double, int) {{}}
 void githyanki_weapon(P_char) {{}}
 void gmcp_char_status(P_char) {{}}
-void update_group_vitals(P_char) {{}}
+void update_group_vitals(P_char, bool) {{}}
 void persistence_schedule_level_checkpoint(P_char, int, int, const char *) {{}}
 int forget_spells(P_char, int) {{ return 0; }}
 bool hardcore_config_level_loss_allowed(int) {{ return hardcore_loss_allowed; }}

@@ -6041,6 +6041,8 @@ void do_toggle(P_char ch, char *arg, int /*cmd*/)
 		send_ch->desc->msp_group_manual = quiet;
 		if (send_ch->desc->msp_group_output)
 			FREE(send_ch->desc->msp_group_output);
+		if (send_ch->desc->msp_automap_output)
+			FREE(send_ch->desc->msp_automap_output);
 		if (send_ch->desc->term_type == TERM_MSP)
 			send_ch->desc->last_group_update = 1;
 		strcpy(Gbuf3, quiet ? "MSP markup (manual group)" : term_name(send_ch));

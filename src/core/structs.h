@@ -1828,6 +1828,7 @@ struct descriptor_data
 	int last_group_update; /* Pending group_update_kind, or zero. */
 	bool msp_group_manual; /* Quiet MSP: group frames only on explicit request. */
 	char *msp_group_output; /* Last displayed group body; owned by this connection. */
+	char *msp_automap_output; /* Last automatic MSP map body; owned by this connection. */
 
 	/* WebSocket support */
 	int websocket;

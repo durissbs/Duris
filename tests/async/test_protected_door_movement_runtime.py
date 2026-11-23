@@ -115,7 +115,7 @@ void set_fighting(P_char,P_char) {}
 int melee_damage(P_char ch,P_char victim,double,int,damage_messages*,int*) { assert(char_in_list(ch) && char_in_list(victim)); ++damage_calls; return DAM_NONEDEAD; }
 void do_remove(P_char,char*,int) { assert(lance_present); }
 void do_wield(P_char,char*,int) {}
-void update_group_vitals(P_char) {}
+void update_group_vitals(P_char, bool) {}
 void gmcp_char_vitals(P_char) {}
 
 
