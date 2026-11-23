@@ -1811,7 +1811,7 @@ static bool run_connection_phase(game_loop_pulse_context &ctx)
 					"Your site has been banned from being able to connect to Duris.\r\n"
 					"You were banned because someone at your site has flagrantly violated\r\n"
 					"the rules to a point where banning your site was necessary.  If you\r\n"
-					"feel this is in error, please e-mail zusuk@duris.sbs\r\n");
+					"feel this is in error, please contact staff via https://playduris.com\r\n");
 				banlog(56, "Reject Connect from %s, banned site.", point->host);
 				logit(LOG_STATUS, "Rejected Connect from %s, banned site.",
 				      point->host);

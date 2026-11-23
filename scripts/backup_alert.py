@@ -92,7 +92,7 @@ def send_alert(unit, recipient, env_file):
     message = EmailMessage()
     message["From"] = os.environ["MAIL_FROM"]
     message["To"] = recipient
-    message["Subject"] = f"[duris.sbs] {unit} failed on {socket.getfqdn()}"
+    message["Subject"] = f"[playduris.com] {unit} failed on {socket.getfqdn()}"
     now = datetime.now(timezone.utc).strftime("%F %T UTC")
     message.set_content(
         f"{unit} failed at {now}. Its last lines:\n\n{journal}\n"

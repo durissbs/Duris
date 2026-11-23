@@ -2,7 +2,7 @@
 
 Use this procedure for the website input to `$help-update`, including deployment
 runs. The queue is **Admin → Help Suggestions**, `/admin/help-suggestions`
-(production: `https://duris.sbs/admin/help-suggestions`). Players submit new pages
+(production: `https://playduris.com/admin/help-suggestions`). Players submit new pages
 or edits through `POST /api/guide/suggestions` and follow their reviews at
 `/guide/my-suggestions`.
 

@@ -5,16 +5,16 @@ Last verified: 2026-10-10 14:12 UTC (production service names adopted, MUD backu
 ## Objective
 
 Run DurisMUD and the DurisWeb website as persistent production services for
-`duris.sbs`. Services must recover from any exit on their own, and an
+`playduris.com`. Services must recover from any exit on their own, and an
 off-host check must alert when they do not.
 
 This file intentionally records no passwords, API tokens, tunnel tokens, or
 private keys. Those remain in owner-controlled ignored files. The earlier
-`duris.sbs` deployment is not tracked here; its setup record is in this file's
+`playduris.com` deployment is not tracked here; its setup record is in this file's
 Git history.
 
 **This server, the shared Plesk host recorded in the operator's `.env`
-(`STAGING_*` block), and the domain `duris.sbs` are the ONLY location of the
+(`STAGING_*` block), and the domain `playduris.com` are the ONLY location of the
 MUD and of the DurisWeb website. The website's public ingress is the Cloudflare tunnel
 `durisweb-production`; Cloudflare is required, not optional. The earlier
 dedicated-host deployment recorded in this file's history and its website
@@ -30,13 +30,13 @@ tunnel are retired and must not be treated as a fallback.**
 | MUD service | `duris-mud-production.service` | User unit running `scripts/cycle_mud.sh --production` |
 | Database | `duris-mariadb.service`, `127.0.0.1:3307`, schema `duris_prod`, account `duris_prod` | MariaDB; `PERSISTENCE_MODE=mariadb-primary`; shared with the website |
 | MUD Redis | `duris-redis.service`, `127.0.0.1:6381` | Namespace `duris:production:main`; ACL identities in `~/.config/duris-redis/users.acl` |
-| Plain telnet | `mud.duris.sbs:7777` | DNS-only A record to the host |
-| TLS telnet | `mud.duris.sbs:7778` | Let's Encrypt via the Cloudflare DNS-01 hooks in `~/.local/libexec/`, renewed by `duris-certbot-renew.timer` |
+| Plain telnet | `mud.playduris.com:7777` | DNS-only A record to the host |
+| TLS telnet | `mud.playduris.com:7778` | Let's Encrypt via the Cloudflare DNS-01 hooks in `~/.local/libexec/`, renewed by `duris-certbot-renew.timer` |
 | MUD WebSocket/health origin | `127.0.0.1:4050` | Loopback-only. The MUD's `.env` must set `DURIS_WEBSOCKET=TRUE`: the listener is off by default, and the website and both health checks need it |
-| Public MUD WebSocket/health | `wss://ws.duris.sbs`, `https://ws.duris.sbs/health` | `ws.duris.sbs` is a proxied CNAME to the website tunnel, whose ingress routes it to the loopback origin. `mud.duris.sbs` stays DNS-only for telnet, and its port 443 is Plesk's Nginx. The browser client connects through the website at `wss://www.duris.sbs/ws` |
+| Public MUD WebSocket/health | `wss://ws.playduris.com`, `https://ws.playduris.com/health` | `ws.playduris.com` is a proxied CNAME to the website tunnel, whose ingress routes it to the loopback origin. `mud.playduris.com` stays DNS-only for telnet, and its port 443 is Plesk's Nginx. The browser client connects through the website at `wss://www.playduris.com/ws` |
 | Website checkout | `~/durisweb` | The DurisWeb repository, deployed from `master` |
 | Website application | `durisweb-production.service`, `127.0.0.1:7770` | Private cache `durisweb-redis.service` on `127.0.0.1:6380`; port 3001 belongs to another account on this host |
-| Website tunnel | `durisweb-cloudflared.service`, tunnel `durisweb-production` | REQUIRED. `duris.sbs` and `www.duris.sbs` are proxied CNAMEs to this tunnel, and its ingress routes both directly to the application, and `ws.duris.sbs` to the MUD origin; no Nginx is in the website path |
+| Website tunnel | `durisweb-cloudflared.service`, tunnel `durisweb-production` | REQUIRED. `playduris.com` and `www.playduris.com` are proxied CNAMEs to this tunnel, and its ingress routes both directly to the application, and `ws.playduris.com` to the MUD origin; no Nginx is in the website path |
 | Tunnel readiness | `http://127.0.0.1:20243/ready` | Loopback-only |
 | Watchdog | `durisweb-watchdog.timer` | User timer running the checkout's `deploy/scripts/durisweb-watchdog` every minute |
 
@@ -52,7 +52,7 @@ and `/etc/systemd/system` paths in this section and the next do not apply;
 use `systemctl --user` and the pause file under `~/.local/state/durisweb-watchdog`.
 
 On 2026-09-10 the website tunnel exited cleanly after losing every edge
-connection. Its unit restarted only on failure, so `duris.sbs` served
+connection. Its unit restarted only on failure, so `playduris.com` served
 Cloudflare error 1033 until the connector was started by hand on 2026-09-14.
 Later that day, a maintenance stop and start of the website application stopped
 the tunnel again, because the tunnel was bound to the application, and the site
@@ -71,8 +71,8 @@ was down for another 40 minutes.
   `Restart=always`, `RestartSec=5s`, and `StartLimitIntervalSec=0`.
 - `duris-mud-production.service` uses `Restart=always` with no start rate limit
   (`deploy/systemd/duris-mud-production.service.in`).
-- The `production uptime` workflow probes `https://duris.sbs/health` and
-  `https://ws.duris.sbs/health` every ten minutes from GitHub-hosted runners.
+- The `production uptime` workflow probes `https://playduris.com/health` and
+  `https://ws.playduris.com/health` every ten minutes from GitHub-hosted runners.
   A failed run notifies through GitHub.
 - A Cloudflare Tunnel Health Alert emails the Cloudflare account owner when the
   website tunnel goes down.
@@ -114,7 +114,7 @@ the public health checks below.
 - MUD service unit: `~/.config/systemd/user/duris-mud-production.service`
 - MUD secrets and connection values: `~/duris/.env` (mode `0600`)
 - MUD TLS certificate: `~/duris/duris.crt` and `duris.key`, symlinks
-  into `~/.config/letsencrypt/live/mud.duris.sbs/`
+  into `~/.config/letsencrypt/live/mud.playduris.com/`
 - Cloudflare DNS token used by certificate renewal and by the website tunnel
   launcher: `~/.config/duris-certbot/cloudflare.env` (mode `0600`)
 - MUD persistence backups: policy `~/.config/duris-backup/policy.json` (named by
@@ -186,7 +186,7 @@ AppArmor allowance continue to identify the same account.
 3. Replace the old home path in `~/duris/.env`, `~/.config/duris-backup/policy.json`
    (including its `custodian`), `~/.config/duris-mariadb/my.cnf`,
    `~/.config/duris-redis/redis.conf`, `~/.config/durisweb/redis.conf`,
-   `~/.config/letsencrypt/renewal/mud.duris.sbs.conf`, and both ACME hooks under
+   `~/.config/letsencrypt/renewal/mud.playduris.com.conf`, and both ACME hooks under
    `~/.local/libexec/`. Update DurisWeb's `backend/.env` (including `MUD_PROCESS_USER`),
    `frontend/.env` and `deploy/deployment.env`; re-render its units from that deployment
    input. Re-create the absolute `~/duris/duris.crt` and `duris.key` symlinks and the
@@ -210,13 +210,13 @@ systemctl --user is-active duris-mariadb duris-redis duris-mud-production \
 systemctl --user list-timers durisweb-watchdog.timer
 journalctl --user-unit durisweb-watchdog.service --since -1h
 curl --fail --silent --show-error http://127.0.0.1:20243/ready
-curl --fail --silent --show-error https://duris.sbs/health
-curl --fail --silent --show-error https://ws.duris.sbs/health
+curl --fail --silent --show-error https://playduris.com/health
+curl --fail --silent --show-error https://ws.playduris.com/health
 
 openssl s_client \
-  -connect mud.duris.sbs:7778 \
-  -servername mud.duris.sbs \
-  -verify_hostname mud.duris.sbs \
+  -connect mud.playduris.com:7778 \
+  -servername mud.playduris.com \
+  -verify_hostname mud.playduris.com \
   -verify_return_error </dev/null
 ```
 
@@ -232,5 +232,5 @@ health response must be `{"status":"healthy","persistence":"ready"}`.
   document and tracked files contain no secret values.
 - The root-run watchdog executes a root-owned copy, never a script in a checkout
   the service account can modify.
-- The MUD WebSocket origin allow-list is restricted to `https://duris.sbs`
-  and `https://www.duris.sbs`.
+- The MUD WebSocket origin allow-list is restricted to `https://playduris.com`
+  and `https://www.playduris.com`.

@@ -308,8 +308,8 @@ rotated during reboot too. Review the output, not just matching error words.
 Require the new server child's `/proc/<pid>/exe` hash to match the rebuilt
 binary, the production stamp to match, and startup/world/persistence loading to
 complete without unresolved errors. Check `scripts/healthcheck.sh`, public MUD
-health at `https://ws.duris.sbs/health`, and website health at
-`https://duris.sbs/health`. Reconnect to confirm the game accepts logins.
+health at `https://ws.playduris.com/health`, and website health at
+`https://playduris.com/health`. Reconnect to confirm the game accepts logins.
 When news changed, run `news` and complete the player-visible readback in
 [news-update](../news-update/SKILL.md): verify the newest headline and main
 addition on the first page and read through the new section. Database equality
