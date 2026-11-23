@@ -20257,6 +20257,30 @@ the other side were actively playing in the last hour, taken from samples
 every 5 minutes. Only players level 30 and above who are doing something
 count, once per account; idle, AFK and linkdead characters do not. The report
 appears 5 minutes after each boot.
+
+The message depends on the other side's highest count in that hour:
+
+  Good characters see:
+    0      The land lay quiet; no taint of darkness was felt.
+    1-4    A faint stench of evil drifted on the wind.
+    5-8    Shadows gathered at the edges of the realm; evil was on
+           the move.
+    9-12   War drums echoed as the forces of darkness mustered.
+    13-16  A dark host marched openly across the land.
+    17+    A horde of evil beyond counting blackened the land!
+
+  Evil characters see:
+    0      No do-gooder dared show their face.
+    1-4    A few self-righteous fools wandered where they did not belong.
+    5-8    Bands of meddling do-gooders roamed the land.
+    9-12   Banners of the light rose as the do-gooders gathered their
+           strength.
+    13-16  An army of the light marched openly, hymns ringing across the
+           realm.
+    17+    A shining host beyond counting flooded the realm!
+
+"(Scouts reported X minutes ago.)" after the message says how old the
+latest sample is.
 ===========================================================================
 
 #
