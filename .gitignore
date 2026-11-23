@@ -11,6 +11,7 @@
 /areas/de/src/cscope.out
 /bin/*
 /shopkeeper-boot/
+/shop-sales/
 !/bin/.gitignore
 /build
 /gmon.out

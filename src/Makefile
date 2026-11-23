@@ -338,6 +338,7 @@ OBJS =  $(SHIP_OBJS) \
 				 item/starter_kit_intent.o \
 				 account/kept_character_recovery.o \
 				 economy/shopkeeper_boot.o \
+				 economy/shop_sales_since.o \
 				 economy/shopkeeper_restock.o \
 				 item/item_transfer_repository.o \
 				 item/item_claim.o \
