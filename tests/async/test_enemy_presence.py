@@ -16,6 +16,8 @@ assert "sample_enemy_presence();" in source("comm.c").read_text(encoding="utf-8"
 assert "append_enemy_presence(ch, who_output, MAX_STRING_LENGTH," in extract_function(
     "actinf.c", "void do_who(")
 
+morph = extract_function("utility.c", "int IS_MORPH(")
+
 harness = r"""
 #include "core/prototypes.h"
 #include "core/structs.h"
@@ -28,6 +30,7 @@ int64_t fake_now = 100000;
 std::array<divine_boon_population, 2> fake_population = {};
 std::array<divine_boon_population, 2> divine_boon_activity_population() { return fake_population; }
 
+@MORPH@
 @PRESENCE@
 
 static void set_side(int side, unsigned lowbies, unsigned counted)
@@ -71,6 +74,27 @@ int main()
     assert(report(&evil) ==
            "&+wNo do-gooder dared show their face.&n &+L(Scouts reported 0 minutes ago.)&n\n");
     assert(report(&neutral).empty());
+
+    // A morphed player types who through a mob body with no side.
+    npc_only_data morph_data = {};
+    char_data beast = {};
+    beast.specials.act = ACT_ISNPC;
+    beast.only.npc = &morph_data;
+    morph_data.orig_char = &good;
+    assert(report(&beast) == report(&good));
+    morph_data.orig_char = &staff;
+    assert(report(&beast) == report(&staff));
+    // So does a switched player.
+    descriptor_data link = {};
+    char_data mob = {};
+    mob.specials.act = ACT_ISNPC;
+    mob.only.npc = &morph_data;
+    morph_data.orig_char = nullptr;
+    mob.desc = &link;
+    link.original = &evil;
+    assert(report(&mob) == report(&evil));
+    mob.desc = nullptr;
+    assert(report(&mob).empty());
     assert(report(&staff) == "&+rPeak active mortals (30+) in the last hour: 6 &+Revil&n&+r, 0 "
                              "&+Ygood&n&+r (sampled 0 min ago).&n\n");
 
@@ -126,7 +150,7 @@ int main()
     assert(report(&good).find("A faint taint") != std::string::npos);
     puts("enemy presence cases passed");
 }
-""".replace("@PRESENCE@", presence)
+""".replace("@PRESENCE@", presence).replace("@MORPH@", morph)
 
 output = ROOT / "bin/tests"
 output.mkdir(parents=True, exist_ok=True)

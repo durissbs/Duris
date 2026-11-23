@@ -223,8 +223,7 @@ int main()
     const auto peak_suffix = last_hour_label + std::to_string(INT_MAX) + ".&n\n";
     assert(summary(&staff, listed, near_limit) == near_limit + trusted + peak_suffix);
     curr_ingame_evil = 1;
-    assert(summary(&good, listed, near_limit) == near_limit + ordinary + peak_suffix +
-           "There are &+Revil(s)&N online.\n");
+    assert(summary(&good, listed, near_limit) == near_limit + ordinary + peak_suffix);
     curr_ingame_evil = 0;
     max_descs_previous_hour_valid = false;
     assert(summary(&good, listed) == ordinary);
@@ -232,10 +231,10 @@ int main()
         for (int evil_count : { 0, 1, 7 }) {
             curr_ingame_good = good_count;
             curr_ingame_evil = evil_count;
-            assert(summary(&good, listed) == ordinary +
-                   (evil_count > 0 ? "There are &+Revil(s)&N online.\n" : ""));
-            assert(summary(&evil, listed) == ordinary +
-                   (good_count > 0 ? "There are &+Ygood(s)&N online.\n" : ""));
+            // The unfiltered live counters no longer reach mortals; the
+            // banded enemy presence report replaces them.
+            assert(summary(&good, listed) == ordinary);
+            assert(summary(&evil, listed) == ordinary);
             assert(summary(&staff, listed) == trusted);
         }
     }
@@ -298,8 +297,8 @@ int main()
     fclose(image);
     assert(used_descs == 6 && curr_ingame_good == 2 && curr_ingame_evil == 2);
     assert(max_ingame_good == 2 && max_ingame_evil == 2);
-    assert(summary(&good, listed) == ordinary + "There are &+Revil(s)&N online.\n");
-    assert(summary(&evil, listed) == ordinary + "There are &+Ygood(s)&N online.\n");
+    assert(summary(&good, listed) == ordinary);
+    assert(summary(&evil, listed) == ordinary);
     assert(summary(&staff, listed) == trusted);
     for (int i = 0; i < 4; ++i) {
         assert(restored[i].desc && STATE(restored[i].desc) == CON_PLAYING);
@@ -308,7 +307,7 @@ int main()
     assert(curr_ingame_good == 0 && curr_ingame_evil == 0);
     assert(summary(&good, listed) == ordinary && summary(&evil, listed) == ordinary);
     update_ingame_racewar(RACEWAR_EVIL);
-    assert(summary(&good, listed) == ordinary + "There are &+Revil(s)&N online.\n");
+    assert(summary(&good, listed) == ordinary);
     update_ingame_racewar(-RACEWAR_EVIL);
     while (descriptor_list) {
         P_desc d = descriptor_list;

@@ -7621,8 +7621,10 @@ static void append_enemy_presence(P_char ch, char *out, size_t size, int64_t now
 		"&+YThe armies of the light marshalled in numbers.&n",
 		"&+YA shining host of the light flooded the realm!&n",
 	};
-	const bool trusted = IS_TRUSTED(ch);
-	if (!trusted && !IS_RACEWAR_GOOD(ch) && !IS_RACEWAR_EVIL(ch))
+	// A morphed or switched player types who through a mob body with no side.
+	P_char viewer = GET_PLYR(ch);
+	const bool trusted = IS_TRUSTED(viewer);
+	if (!trusted && !IS_RACEWAR_GOOD(viewer) && !IS_RACEWAR_EVIL(viewer))
 		return;
 	unsigned good = 0, evil = 0;
 	int64_t latest = -1;
@@ -7646,7 +7648,7 @@ static void append_enemy_presence(P_char ch, char *out, size_t size, int64_t now
 			evil, good, minutes);
 		return;
 	}
-	const bool viewer_good = IS_RACEWAR_GOOD(ch);
+	const bool viewer_good = IS_RACEWAR_GOOD(viewer);
 	const unsigned peak = viewer_good ? evil : good;
 	const int band = peak == 0 ? 0 : peak <= 4 ? 1 : peak <= 8 ? 2 : peak <= 12 ? 3 : 4;
 	checked_snprintf(out + strlen(out), size - strlen(out),
@@ -8147,14 +8149,6 @@ void do_who(P_char ch, char *argument, int /*cmd*/)
 					max_descs_previous_hour);
 			append_enemy_presence(ch, who_output, MAX_STRING_LENGTH,
 					      enemy_presence_clock());
-			if ((curr_ingame_good > 0) && !IS_RACEWAR_GOOD(ch) && !IS_TRUSTED(ch))
-				checked_snprintf(who_output + strlen(who_output),
-						 MAX_STRING_LENGTH - strlen(who_output),
-						 "There are &+Ygood(s)&N online.\n");
-			if ((curr_ingame_evil > 0) && !IS_RACEWAR_EVIL(ch) && !IS_TRUSTED(ch))
-				checked_snprintf(who_output + strlen(who_output),
-						 MAX_STRING_LENGTH - strlen(who_output),
-						 "There are &+Revil(s)&N online.\n");
 		}
 		send_to_char(who_output, ch, LOG_NONE);
 		strcpy(who_output, "");
