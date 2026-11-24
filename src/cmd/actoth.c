@@ -318,6 +318,13 @@ void do_camp(P_char ch, char *arg, int /*cmd*/)
 		ch = NULL;
 		return;
 	}
+	if (artifact_holds_extra(ch))
+	{
+		send_to_char(
+			"You cannot rest while you carry two artifacts of one type. Give one away or drop one first.\r\n",
+			ch);
+		return;
+	}
 	/* no loot/camp */
 	if (IS_AFFECTED4(ch, AFF4_LOOTER))
 	{
@@ -4136,7 +4143,8 @@ void do_steal(P_char ch, char *argument, int /*cmd*/)
 		}
 	}
 
-	if (obj && IS_ARTIFACT(obj) && !IS_TRUSTED(ch))
+	// Containers too: an artifact inside one is just as bound.
+	if (obj && holds_artifact(obj) && !IS_TRUSTED(ch))
 	{
 		send_to_char(
 			"That item appears to be &+Mmagically &nbound to them, better try to steal something else.\r\n",

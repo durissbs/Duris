@@ -28,6 +28,31 @@ float get_property(const char *name, double fallback)
 {
 	return std::string(name) == "artifact.wars.modifier" ? wars_modifier : fallback;
 }
+int get_property(const char *, int fallback)
+{
+	return fallback;
+}
+static std::vector<int> grace_event_delays;
+static bool grace_event_pending = false; // Whether the character has the grace event.
+nevent_schedule_result add_event(event_func func, int delay, P_char, P_char, P_obj, int,
+				 const void *, int)
+{
+	assert(func == event_artifact_loot_grace);
+	grace_event_delays.push_back(delay);
+	grace_event_pending = true;
+	return {};
+}
+static char scheduled_event; // Stands in for a pending event; never read.
+P_nevent get_scheduled(P_char, event_func_type func)
+{
+	assert(func == event_artifact_loot_grace);
+	return grace_event_pending ? reinterpret_cast<P_nevent>(&scheduled_event) : nullptr;
+}
+P_nevent get_scheduled_excluding_current(P_char, event_func_type func)
+{
+	assert(func == event_artifact_loot_grace);
+	return grace_event_pending ? reinterpret_cast<P_nevent>(&scheduled_event) : nullptr;
+}
 P_char find_player_by_pid(int pid)
 {
 	return pid == 42 ? wars_owner : nullptr;
@@ -44,11 +69,32 @@ void obj_to_room(P_obj object, int room)
 	assert(wars_owner && room == wars_owner->in_room);
 	wars_drops.push_back(object);
 }
+// IS_UNIQUE reads the object's keywords, so artifact types need a real word match.
+bool isname(const char *match, const char *namelist)
+{
+	const std::string words = std::string(" ") + (namelist ? namelist : "") + " ";
+	return words.find(std::string(" ") + match + " ") != std::string::npos;
+}
+static void unlink_content(P_obj *list, P_obj object)
+{
+	while (*list != object)
+	{
+		assert(*list);
+		list = &(*list)->next_content;
+	}
+	*list = object->next_content;
+	object->next_content = nullptr;
+}
 void obj_from_char(P_obj object)
 {
-	assert(wars_owner && wars_owner->carrying == object);
-	wars_owner->carrying = object->next_content;
-	object->next_content = nullptr;
+	assert(wars_owner);
+	unlink_content(&wars_owner->carrying, object);
+}
+void obj_from_obj(P_obj object)
+{
+	assert(wars_owner && OBJ_INSIDE(object));
+	unlink_content(&object->loc.inside->contains, object);
+	object->loc_p = LOC_NOWHERE;
 }
 void nevent_periodic_mark_failure(const char *)
 {
@@ -514,6 +560,14 @@ static void payment_cases(Guild *guild)
 	puts("PASS kingdom payment admission/commit boundary, later rewards, rollback and fresh paired retries, late realm changes and recreation");
 }
 
+// Gives a test object the flags that make it count as this artifact type.
+static void artifact_wars_flag(obj_data &object, int type)
+{
+	object.extra_flags = ITEM_ARTIFACT;
+	object.name = const_cast<char *>(type == ARTIFACT_UNIQUE ? "unique relic" : "relic");
+	object.wear_flags = type == ARTIFACT_IOUN ? ITEM_WEAR_IOUN : 0;
+}
+
 static void artifact_wars_drop_only_cases()
 {
 	wars_modifier = SHIPPED_ARTIFACT_WARS_MODIFIER;
@@ -524,19 +578,24 @@ static void artifact_wars_drop_only_cases()
 		{
 			artifact_rows.clear();
 			artifact_binds.clear();
+			artifact_loot_graces.clear();
 			jobs.clear();
 			wars_drops.clear();
 			char_data owner = {};
+			pc_only_data pc = {};
+			owner.only.pc = &pc;
+			pc.pid = 42;
 			owner.in_room = 100;
 			GET_HIT(&owner) = 777;
 			wars_owner = &owner;
 			obj_data objects[4] = {};
 			for (int index = 0; index < 3; ++index)
 			{
-				objects[index].extra_flags = ITEM_ARTIFACT;
+				const int row_type = (type - 1 + index) % 3 + 1;
+				artifact_wars_flag(objects[index], row_type);
 				artifact_rows[900 + index] = { true, ARTIFACT_ON_PC, 42,
 							       now + 8000 + index * 1000,
-							       (type - 1 + index) % 3 + 1 };
+							       row_type };
 				objects[index].next_content = &objects[index + 1];
 			}
 			owner.carrying = &objects[0];
@@ -553,24 +612,128 @@ static void artifact_wars_drop_only_cases()
 			assert(owner.carrying == &objects[worn ? 1 : 0]);
 			assert(owner.equipment[0] == (worn ? &objects[0] : nullptr));
 
-			// A second same-type artifact acquired just before the sweep triggers
-			// all existing drops, including the otherwise legal third category.
+			// A second artifact of one type, with no loot grace running, drops at the
+			// sweep. Only the extra falls: the first one held and the third category stay.
 			artifact_rows.at(901).type = type;
+			artifact_wars_flag(objects[1], type);
+			artifact_loot_graces[42] = { now + 600, {} };
 			event_artifact_wars_sql(nullptr, nullptr, nullptr, nullptr);
-			assert(wars_drops.size() == 3);
+			assert(wars_drops.empty()); // A running grace defers to its own end.
+			artifact_loot_graces[42].ends = now;
+			event_artifact_wars_sql(nullptr, nullptr, nullptr, nullptr);
+			assert(wars_drops.size() == 1 && wars_drops[0] == &objects[1]);
 			for (int index = 0; index < 3; ++index)
-			{
-				assert(wars_drops[index] == &objects[index]);
 				assert(artifact_rows.at(900 + index).timer ==
 				       now + 8000 + index * 1000);
-			}
-			assert(!owner.equipment[0] && owner.carrying == &objects[3]);
+			assert(owner.equipment[0] == (worn ? &objects[0] : nullptr));
+			assert(owner.carrying == (worn ? &objects[2] : &objects[0]));
 			assert(GET_HIT(&owner) == 777 && jobs.empty());
 			wars_owner = nullptr;
 		}
 	wars_drops.clear();
 	wars_modifier = .25f; // Retain configured-penalty capture coverage below.
-	puts("PASS shipped artifact-war policy: legal mixed categories, same-type drops from inventory/equipment, unchanged timers and health");
+	puts("PASS shipped artifact-war policy: legal mixed categories, a running loot grace defers, only the extra drops, unchanged timers and health");
+}
+
+static void artifact_loot_grace_cases()
+{
+	const time_t now = time(nullptr);
+	for (bool worn : { false, true })
+	{
+		artifact_rows.clear();
+		artifact_loot_graces.clear();
+		wars_drops.clear();
+		char_data owner = {};
+		pc_only_data pc = {};
+		owner.only.pc = &pc;
+		pc.pid = 42;
+		owner.in_room = 100;
+		wars_owner = &owner;
+		obj_data held = {}, looted = {}, bag = {}, bagged = {};
+		artifact_wars_flag(held, ARTIFACT_MAJOR);
+		artifact_wars_flag(looted, ARTIFACT_MAJOR);
+		artifact_wars_flag(bagged, ARTIFACT_IOUN);
+		// Unworn, the artifact that arrived during the grace drops and the one held
+		// before it stays. Worn, the worn one stays even if it was the later arrival.
+		indexes[0].virtual_number = 900;
+		held.R_num = 0; // vnum 900
+		looted.R_num = -1; // vnum -1
+		artifact_loot_graces[42] = { now, { worn ? 900 : -1 } };
+		if (worn)
+			owner.equipment[0] = &looted;
+		else
+			held.next_content = &looted;
+		owner.carrying = &held;
+		event_artifact_loot_grace(&owner, nullptr, nullptr, nullptr);
+		assert(wars_drops.size() == 1 && wars_drops[0] == (worn ? &held : &looted));
+		assert(!artifact_loot_graces.count(42));
+		assert(owner.equipment[0] == (worn ? &looted : nullptr));
+
+		// A second ioun put in a bag still counts, and still falls.
+		wars_drops.clear();
+		obj_data ioun = {};
+		artifact_wars_flag(ioun, ARTIFACT_IOUN);
+		bag.contains = &bagged;
+		bagged.loc_p = LOC_INSIDE;
+		bagged.loc.inside = &bag;
+		owner.carrying = &ioun;
+		ioun.next_content = &bag;
+		bag.next_content = nullptr;
+		artifact_loot_graces[42] = { now, {} };
+		event_artifact_loot_grace(&owner, nullptr, nullptr, nullptr);
+		assert(wars_drops.size() == 1 && wars_drops[0] == &bagged && !bag.contains);
+
+		// A player who parted with the extra in time loses nothing.
+		wars_drops.clear();
+		artifact_loot_graces[42] = { now, {} };
+		event_artifact_loot_grace(&owner, nullptr, nullptr, nullptr);
+		assert(wars_drops.empty() && !artifact_loot_graces.count(42));
+		wars_owner = nullptr;
+	}
+	// The grace starts once and keeps its end when another artifact arrives, so dropping
+	// the extra and picking it up again does not restart it. Once ended, a new one starts.
+	char_data looter = {};
+	pc_only_data looter_pc = {};
+	looter.only.pc = &looter_pc;
+	looter_pc.pid = 42;
+	artifact_loot_graces.clear();
+	grace_event_delays.clear();
+	grace_event_pending = false;
+	artifact_loot_grace_arrival(&looter, 901);
+	assert(artifact_loot_graces.at(42).ends == now + 600);
+	assert(grace_event_delays.size() == 1 && grace_event_delays[0] == 600 * WAIT_SEC);
+	artifact_loot_graces.at(42).ends = now + 100;
+	artifact_loot_grace_arrival(&looter, 902);
+	assert(artifact_loot_graces.at(42).ends == now + 100 && grace_event_delays.size() == 1);
+	assert(artifact_loot_graces.at(42).arrivals == std::set<int>({ 901, 902 }));
+	assert(artifact_loot_grace_running(42));
+	// Death replaces the character and its events; the running grace keeps its end
+	// and the new character gets the event for what is left.
+	grace_event_pending = false;
+	artifact_loot_grace_arrival(&looter, 902);
+	assert(artifact_loot_graces.at(42).ends == now + 100);
+	assert(grace_event_delays.size() == 2 && grace_event_delays[1] == 100 * WAIT_SEC);
+	// An event that runs before the grace ends drops nothing and waits for the rest.
+	grace_event_pending = false;
+	event_artifact_loot_grace(&looter, nullptr, nullptr, nullptr);
+	assert(artifact_loot_graces.count(42) && wars_drops.empty());
+	assert(grace_event_delays.size() == 3 && grace_event_delays[2] == 100 * WAIT_SEC);
+	// With the grace's own event still pending, an early one just returns.
+	event_artifact_loot_grace(&looter, nullptr, nullptr, nullptr);
+	assert(artifact_loot_graces.count(42) && grace_event_delays.size() == 3);
+	// A grace that has ended is replaced by a fresh one.
+	artifact_loot_graces.at(42).ends = now;
+	assert(!artifact_loot_grace_running(42));
+	grace_event_pending = false;
+	artifact_loot_grace_arrival(&looter, 903);
+	assert(artifact_loot_graces.at(42).ends == now + 600 && grace_event_delays.size() == 4);
+	assert(artifact_loot_graces.at(42).arrivals == std::set<int>({ 903 }));
+	// An event with no grace left (one already ended) does nothing.
+	artifact_loot_graces.clear();
+	event_artifact_loot_grace(&looter, nullptr, nullptr, nullptr);
+	assert(wars_drops.empty() && grace_event_delays.size() == 4);
+	artifact_rows.clear();
+	puts("PASS loot grace end: keeps the worn or earlier artifact, drops the extra from a bag, drops nothing once parted with, does not restart on re-loot, reschedules for a replaced character and waits out an early event");
 }
 
 static void artifact_ordering_cases()
@@ -1261,6 +1424,7 @@ int main(int argc, char **argv)
 	puts("PASS real guild capture, spending/settings, current-state retry and exact-capture ACK; snapshot diagnostics survive the real reporter");
 	payment_cases(guild);
 	artifact_wars_drop_only_cases();
+	artifact_loot_grace_cases();
 	artifact_ordering_cases();
 	identity_snapshot_cases();
 	population_snapshot_cases();
