@@ -241,6 +241,17 @@ void do_target(P_char ch, char *arg, int cmd)
 	return;
 }
 
+// A player who just looted the other side's corpse may not camp or rent for a while.
+bool refuse_looter_rest(P_char ch)
+{
+	if (!IS_AFFECTED4(ch, AFF4_LOOTER) && !affected_by_spell(ch, TAG_LOOTER))
+		return false;
+	send_to_char(
+		"Aw, play fair. Give your last victim a few minutes to even the score before you whimper off, hiding like a dog.\r\n",
+		ch);
+	return true;
+}
+
 void do_camp(P_char ch, char *arg, int /*cmd*/)
 {
 	struct affected_type af;
@@ -325,14 +336,8 @@ void do_camp(P_char ch, char *arg, int /*cmd*/)
 			ch);
 		return;
 	}
-	/* no loot/camp */
-	if (IS_AFFECTED4(ch, AFF4_LOOTER))
-	{
-		send_to_char(
-			"Aw, play fair. Give your last victim a few minutes to even the score before you whimper off, hiding like a dog.\r\n",
-			ch);
+	if (refuse_looter_rest(ch))
 		return;
-	}
 	if (IS_AFFECTED2(ch, AFF2_FLURRY))
 	{
 		send_to_char("You are too deep in battle madness!\r\n", ch);

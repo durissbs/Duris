@@ -18,6 +18,7 @@ from test_flight_network_journey import authority, command
 
 ROOT = journey.ROOT
 STAFF, BARD, NECRO, THIEF = "Reportwarden", "Reportbard", "Reportnecro", "Reportthief"
+LOOTER = "Reportreaver"  # The other side, for corpse looting.
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 MOBILES = """#22810
@@ -176,13 +177,15 @@ def run(binary):
 
             try:
                 process = boot()
-                for name, cls in ((STAFF, "w"), (BARD, "w"), (NECRO, "n"), (THIEF, "t")):
+                for name, cls in ((STAFF, "w"), (BARD, "w"), (NECRO, "n"), (THIEF, "t"), (LOOTER, "w")):
                     client = journey.MudClient(plain_port)
                     clients.append(client)
+                    evil = name == LOOTER
                     journey.create_character(client, expected_room=None, account=name, character=name,
                                              class_name=cls, email=name.lower() + "@example.invalid",
-                                             alignment="n" if name == THIEF else "g",
-                                             hometown="p" if name == NECRO else None)
+                                             race_name="d" if evil else "h",
+                                             alignment="e" if evil else "n" if name == THIEF else "g",
+                                             hometown="c" if evil else "p" if name == NECRO else None)
                     print("Created " + name, flush=True)
                     command(client, "save")
                     client.send("quit")
@@ -410,6 +413,27 @@ def run(binary):
                     do(staff, "look")
                     time.sleep(.5)
                 passed("I12: observers see a blinded creature regain its sight when the blindness wears off")
+
+                # Looting the other side's corpse locks out resting; one's own side's does not.
+                looter = login(LOOTER)
+                do(staff, "transfer " + LOOTER)
+                do(staff, "transfer " + NECRO)
+                for _ in range(2):  # Two plain items for the corpse, one for each looter.
+                    assert "You have created" in do(staff, "load obj 6")
+                    assert "Ok." in do(staff, "give gem " + NECRO)
+                assert "You have created" in do(staff, "load mob 22800")
+                journey.attack_until_death(necro)
+                clients.remove(necro)
+                necro.close()
+                rest = "Give your last victim a few minutes to even the score"
+                do(bard, "drop all")  # The starter kits fill both packs.
+                do(looter, "drop all")
+                assert "You get" in do(bard, "get gem corpse")
+                assert rest not in do(bard, "camp")
+                do(bard, "camp abort")
+                assert "You get" in do(looter, "get gem corpse")
+                assert rest in do(looter, "camp")
+                passed("I16: a player who loots the other side's corpse cannot camp; one who loots their own side's can")
 
                 stop()
                 process = boot()

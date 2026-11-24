@@ -763,6 +763,7 @@ bool holds_artifact(P_obj obj);
 void artifact_count_incoming(P_char ch, P_obj obj, artifact_counts &counts);
 bool artifact_over_limit(P_char ch, const artifact_counts &counts, int limit);
 bool artifact_holds_extra(P_char ch);
+bool refuse_looter_rest(P_char ch);
 void event_artifact_loot_grace(P_char, P_char, P_obj, void *);
 void event_check_arti_poof(P_char ch, P_char vict, P_obj obj, void *arg);
 void event_artifact_wars(P_char, P_char, P_obj, void *);
