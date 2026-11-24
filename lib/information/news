@@ -32,10 +32,13 @@ Newest first; later updates replace older rules. Longer archive on web.
 &+Y-&n See &+C'help artifact'&n, &+C'help camp'&n and &+C'help rent'&n.
 
 &+CHerbs&n
-&+Y-&n Blue Haze now speeds up your casting a little, as intended; it
-  slowed casting before. Smoking Blue Haze or Black Kush again renews
-  all of its effects, not just one, and Blue Haze and Ocularius now
-  clear Slow and Haste properly.
+&+Y-&n Blue Haze now speeds your casting slightly. It used to slow it.
+&+Y-&n Smoking Blue Haze or Black Kush again now extends all of their
+  effects. Before, only one carried on, so a second Blue Haze lost its
+  armor, hit points and casting speed when the first dose ran out.
+&+Y-&n Blue Haze now removes the Slow spell, and Ocularius now removes the
+  Haste spell, as intended. Blue Haze no longer strips Awareness.
+&+Y-&n See &+C'help blue haze'&n, &+C'help black kush'&n and &+C'help ocularius'&n.
 
 &+CWho is out there&n
 &+Y-&n The enemy report in &+C'who'&n is now published once an hour. &+L"Scouts
@@ -44,15 +47,6 @@ Newest first; later updates replace older rules. Longer archive on web.
 
 &+CIdeas&n
 &+Y-&n Ideas you send with &+C'idea'&n now also reach staff on Discord.
-
-&+CHerbs&n
-&+Y-&n Blue Haze now speeds your casting slightly. It used to slow it.
-&+Y-&n Smoking Blue Haze or Black Kush again now extends all of their
-  effects. Before, only one carried on, so a second Blue Haze lost its
-  armor, hit points and casting speed when the first dose ran out.
-&+Y-&n Blue Haze now removes the Slow spell, and Ocularius now removes the
-  Haste spell, as intended. Blue Haze no longer strips Awareness.
-&+Y-&n See &+C'help blue haze'&n, &+C'help black kush'&n and &+C'help ocularius'&n.
 
 &+R11/24/26&n &+L-&n &+YFair prices, watchful scouts and rewards that stay put&n
 &+W----------------------------------------------------------------------&n
