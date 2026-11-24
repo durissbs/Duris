@@ -7566,14 +7566,16 @@ static void list_snoopers(P_char ch, P_desc d, char *who_output)
 // active mortal accounts: online, not AFK, with a state-changing command in
 // the last 15 minutes, counted once per account, level 30 and up. Linkdead,
 // AFK, idle and staff-account characters are excluded by the divine boon
-// activity tracker. Who reports the peak of the samples from the last hour.
-struct enemy_presence_sample
+// activity tracker. Every twelfth sample (one hour) publishes that hour's peak
+// for each side, and who shows the published report until the next one.
+struct enemy_presence_tally
 {
-	int64_t taken_at = -1;
+	int64_t reported_at = -1;
 	unsigned good = 0, evil = 0;
 };
-static std::array<enemy_presence_sample, 12> enemy_presence_samples;
-static size_t enemy_presence_next = 0;
+static enemy_presence_tally enemy_presence_hour; // Peaks so far this hour.
+static unsigned enemy_presence_samples = 0; // Samples so far this hour.
+static enemy_presence_tally enemy_presence_report; // The last published hour.
 
 static int64_t enemy_presence_clock()
 {
@@ -7600,9 +7602,15 @@ void sample_enemy_presence()
 		return;
 	due = now + 300;
 	const auto population = divine_boon_activity_population();
-	enemy_presence_samples[enemy_presence_next] = { now, enemy_presence_count(population[0]),
-							enemy_presence_count(population[1]) };
-	enemy_presence_next = (enemy_presence_next + 1) % enemy_presence_samples.size();
+	const unsigned good = enemy_presence_count(population[0]);
+	const unsigned evil = enemy_presence_count(population[1]);
+	enemy_presence_hour.good = MAX(enemy_presence_hour.good, good);
+	enemy_presence_hour.evil = MAX(enemy_presence_hour.evil, evil);
+	if (++enemy_presence_samples < 12)
+		return;
+	enemy_presence_report = { now, enemy_presence_hour.good, enemy_presence_hour.evil };
+	enemy_presence_hour = {};
+	enemy_presence_samples = 0;
 }
 
 static void append_enemy_presence(P_char ch, char *out, size_t size, int64_t now)
@@ -7628,25 +7636,16 @@ static void append_enemy_presence(P_char ch, char *out, size_t size, int64_t now
 	const bool trusted = IS_TRUSTED(viewer);
 	if (!trusted && !IS_RACEWAR_GOOD(viewer) && !IS_RACEWAR_EVIL(viewer))
 		return;
-	unsigned good = 0, evil = 0;
-	int64_t latest = -1;
-	for (const auto &sample : enemy_presence_samples)
-	{
-		if (sample.taken_at < 0 || now < sample.taken_at || now - sample.taken_at >= 3600)
-			continue;
-		good = MAX(good, sample.good);
-		evil = MAX(evil, sample.evil);
-		latest = MAX(latest, sample.taken_at);
-	}
-	if (latest < 0)
+	const auto &[reported_at, good, evil] = enemy_presence_report;
+	if (reported_at < 0 || now < reported_at)
 		return;
-	const long minutes = static_cast<long>((now - latest) / 60);
+	const long minutes = static_cast<long>((now - reported_at) / 60);
 	if (trusted)
 	{
 		checked_snprintf(
 			out + strlen(out), size - strlen(out),
-			"&+rPeak active mortals (30+) in the last hour: %u &+Revil&n&+r, %u "
-			"&+Ygood&n&+r (sampled %ld min ago).&n\n",
+			"&+rPeak active mortals (30+) in the reported hour: %u &+Revil&n&+r, "
+			"%u &+Ygood&n&+r (reported %ld min ago).&n\n",
 			evil, good, minutes);
 		return;
 	}
