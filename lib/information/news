@@ -31,10 +31,11 @@ Newest first; later updates replace older rules. Longer archive on web.
   side's fallen, to return their gear, is not affected.
 &+Y-&n See &+C'help artifact'&n, &+C'help camp'&n and &+C'help rent'&n.
 
-&+CFood and potions&n
-&+Y-&n Eating and quaffing now tell you how many game hours until you can
-  eat or quaff again, and your stomach growls once you could eat again.
-  See &+C'help eat'&n and &+C'help quaff'&n.
+&+CHerbs&n
+&+Y-&n Blue Haze now speeds up your casting a little, as intended; it
+  slowed casting before. Smoking Blue Haze or Black Kush again renews
+  all of its effects, not just one, and Blue Haze and Ocularius now
+  clear Slow and Haste properly.
 
 &+CWho is out there&n
 &+Y-&n The enemy report in &+C'who'&n is now published once an hour. &+L"Scouts
