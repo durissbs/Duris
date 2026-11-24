@@ -86,6 +86,8 @@ bool account_bound_reward_owner(P_char, P_obj) { return true; }
 struct artifact_counts { int by_type[4] = {}; };
 void artifact_count_incoming(P_char, P_obj, artifact_counts &) {}
 bool artifact_over_limit(P_char, const artifact_counts &, int) { return false; }
+#define IS_PC_PET(ch) false
+bool holds_artifact(P_obj) { return false; }
 bool checkgetput(P_char, P_obj) { return false; }
 P_obj find_live_object(P_obj obj, uint64_t uid) {
     return obj && obj->obj_uid == uid ? obj : nullptr;

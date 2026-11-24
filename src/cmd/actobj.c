@@ -524,6 +524,13 @@ void get(P_char ch, P_obj o_obj, P_obj s_obj, int showit)
 
 	// A second artifact of a type may be taken, starting the loot grace; a third may not.
 	// Artifacts inside a container count as well.
+	// A player's pet may not carry artifacts: they would escape the owner's limit.
+	if (IS_PC_PET(ch) && holds_artifact(o_obj))
+	{
+		act("$p stays where it is: a pet cannot carry artifacts.", FALSE, ch, o_obj, 0,
+		    TO_CHAR);
+		return;
+	}
 	{
 		artifact_counts incoming;
 		artifact_count_incoming(ch, o_obj, incoming);
@@ -1562,6 +1569,12 @@ static bool select_bulk_get_item(P_char actor, P_obj container, P_obj object, co
 		state.rejections.emplace_back(
 			"You may not take that account-bound reward; it belongs to another account.\r\n");
 		state.failed = true;
+		return false;
+	}
+	if (IS_PC_PET(actor) && holds_artifact(object))
+	{
+		reject_bulk_get_object(state, object,
+				       "stays where it is: a pet cannot carry artifacts.");
 		return false;
 	}
 	// At most two artifacts of a type, counting those inside containers and those
@@ -4369,6 +4382,12 @@ void do_give(P_char ch, char *argument, int cmd)
 		act("$E must consent to you before you can overload $M.", 0, ch, 0, vict, TO_CHAR);
 		return;
 	}
+	if (IS_PC_PET(vict) && holds_artifact(obj))
+	{
+		act("$N cannot carry $p: a pet cannot carry artifacts.", FALSE, ch, obj, vict,
+		    TO_CHAR);
+		return;
+	}
 	artifact_counts incoming;
 	artifact_count_incoming(vict, obj, incoming);
 	if (artifact_over_limit(vict, incoming, 1))
@@ -5986,6 +6005,9 @@ int wear(P_char ch, P_obj obj_object, int keyword, bool showit)
 		return FALSE;
 	}
 	if (!can_equip_soulbound_item(ch, obj_object, showit))
+		return FALSE;
+	// A pet that already holds an artifact (a raised corpse's, say) cannot use it.
+	if (IS_PC_PET(ch) && IS_ARTIFACT(obj_object))
 		return FALSE;
 	// Carrying two artifacts of a type, a player may wear neither until parting with one.
 	if (artifact_others_of_type(ch, obj_object) > 0)

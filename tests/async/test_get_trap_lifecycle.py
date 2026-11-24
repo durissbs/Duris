@@ -79,6 +79,7 @@ void logit(const char *,const char *format,...) {
 bool account_bound_reward_owner(P_char,P_obj) { return false; }
 void artifact_count_incoming(P_char, P_obj, artifact_counts &) {}
 bool artifact_over_limit(P_char, const artifact_counts &, int) { return false; }
+bool holds_artifact(P_obj) { return false; }
 int total_carried_weight(P_char) { return 0; }
 int number(int low,int) { return low; }
 int STAT_INDEX(int) { return 0; }

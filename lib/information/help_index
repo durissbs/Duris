@@ -754,7 +754,8 @@ does not restart the time. When the time runs out, only the extra falls to
 the ground: the one you wear, or else the one you held first, stays with
 you. The drop causes no damage or loss of remaining feeding time.
 
-You cannot be given an artifact of a type you already hold.
+You cannot be given an artifact of a type you already hold. A pet cannot
+pick up, be given or wear an artifact.
 
 &+LAvernus the life stealer&n
 ---------------------------------------------------------------------------
@@ -6152,7 +6153,8 @@ does not restart the time. When the time runs out, only the extra falls to
 the ground: the one you wear, or else the one you held first, stays with
 you. The drop causes no damage or loss of remaining feeding time.
 
-You cannot be given an artifact of a type you already hold.
+You cannot be given an artifact of a type you already hold. A pet cannot
+pick up, be given or wear an artifact.
 ===========================================================================
 See also: ARTIFACT, UNIQUE, IOUN
 
@@ -19447,7 +19449,8 @@ does not restart the time. When the time runs out, only the extra falls to
 the ground: the one you wear, or else the one you held first, stays with
 you. The drop causes no damage or loss of remaining feeding time.
 
-You cannot be given an artifact of a type you already hold.
+You cannot be given an artifact of a type you already hold. A pet cannot
+pick up, be given or wear an artifact.
 ===========================================================================
 See also: ARTIFACT, IOUN, FEEDING
 
