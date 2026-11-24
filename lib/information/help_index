@@ -20272,12 +20272,13 @@ mortal characters.
      other Evil PC's. The same holds true for Good races. 
 
 Below the list, good and evil characters see a rough report of how many of
-the other side were actively playing in the last hour, taken from samples
-every 5 minutes. Only players level 30 and above who are doing something
-count, once per account; idle, AFK and linkdead characters do not. The report
-appears 5 minutes after each boot.
+the other side were actively playing. The game counts every 5 minutes and
+publishes a new report once an hour, using the highest count from that
+hour. Only players level 30 and above who are doing something count, once
+per account; idle, AFK and linkdead characters do not. The first report
+appears an hour after each boot.
 
-The message depends on the other side's highest count in that hour:
+The message depends on the other side's highest count in the reported hour:
 
   Good characters see:
     0      The land lay quiet; no taint of darkness was felt.
@@ -20298,8 +20299,8 @@ The message depends on the other side's highest count in that hour:
            realm.
     17+    A shining host beyond counting flooded the realm!
 
-"(Scouts reported X minutes ago.)" after the message says how old the
-latest sample is.
+"(Scouts reported X minutes ago.)" after the message says how long ago the
+report was published, from 0 to 59 minutes.
 ===========================================================================
 
 #

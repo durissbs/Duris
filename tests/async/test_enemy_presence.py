@@ -60,13 +60,27 @@ int main()
     GET_RACEWAR(&neutral) = RACEWAR_NEUTRAL;
     staff.player.level = MAXLVL;
 
-    // The first sample waits five minutes after boot for activity to build up.
+    // Samples every five minutes from five minutes after boot; the first
+    // report is published by the twelfth sample, an hour after boot.
+    auto run_hour = [&](unsigned good_count, unsigned evil_count) {
+        for (unsigned i = 0; i < 12; i++) {
+            set_side(0, 0, good_count);
+            set_side(1, 0, evil_count);
+            fake_now += 300;
+            sample_enemy_presence();
+        }
+    };
     set_side(1, 0, 6);
-    sample_enemy_presence();
+    sample_enemy_presence(); // Schedules the first sample.
     fake_now += 299;
     sample_enemy_presence();
-    assert(report(&good).empty() && report(&staff).empty());
+    assert(enemy_presence_samples == 0);
     fake_now += 1;
+    for (unsigned i = 0; i < 11; i++) {
+        sample_enemy_presence();
+        assert(report(&good).empty() && report(&staff).empty());
+        fake_now += 300;
+    }
     sample_enemy_presence();
     assert(report(&good) ==
            "&+rShadows gathered at the edges of the realm; evil was on the move.&n "
@@ -74,6 +88,8 @@ int main()
     assert(report(&evil) ==
            "&+wNo do-gooder dared show their face.&n &+L(Scouts reported 0 minutes ago.)&n\n");
     assert(report(&neutral).empty());
+    assert(report(&staff) == "&+rPeak active mortals (30+) in the reported hour: 6 &+Revil&n&+r, "
+                             "0 &+Ygood&n&+r (reported 0 min ago).&n\n");
 
     // A morphed player types who through a mob body with no side.
     npc_only_data morph_data = {};
@@ -95,31 +111,50 @@ int main()
     assert(report(&mob) == report(&evil));
     mob.desc = nullptr;
     assert(report(&mob).empty());
-    assert(report(&staff) == "&+rPeak active mortals (30+) in the last hour: 6 &+Revil&n&+r, 0 "
-                             "&+Ygood&n&+r (sampled 0 min ago).&n\n");
 
-    // Characters under 30 are not counted.
-    set_side(1, 9, 0);
-    set_side(0, 20, 0);
-    fake_now += 300;
-    sample_enemy_presence();
-    assert(report(&evil).find("No do-gooder") != std::string::npos);
-    // The six evils sampled five minutes ago still set the peak.
+    // The report stays the same between hourly reports while its age counts up
+    // to 59 minutes, even as new samples arrive. Under-30s are never counted.
+    for (unsigned i = 0; i < 11; i++) {
+        set_side(0, 20, 2);
+        set_side(1, 9, 0);
+        fake_now += 300;
+        sample_enemy_presence();
+        assert(report(&good).find("Shadows gathered") != std::string::npos);
+        assert(report(&evil).find("No do-gooder") != std::string::npos);
+    }
     fake_now += 61;
+    assert(report(&good).find("(Scouts reported 56 minutes ago.)") != std::string::npos);
+    fake_now += 238;
+    assert(report(&good).find("(Scouts reported 59 minutes ago.)") != std::string::npos);
+    sample_enemy_presence(); // Not due for another second.
     assert(report(&good).find("Shadows gathered") != std::string::npos);
+    // The twelfth sample publishes the new hour: its peak, then 0 minutes.
+    fake_now += 1;
+    sample_enemy_presence();
+    assert(report(&good).find("The land lay quiet") != std::string::npos);
+    assert(report(&good).find("(Scouts reported 0 minutes ago.)") != std::string::npos);
+    assert(report(&evil).find("A few self-righteous fools") != std::string::npos);
+    fake_now += 60;
     assert(report(&good).find("(Scouts reported 1 minute ago.)") != std::string::npos);
+
+    // A single busy sample sets the hour's peak.
+    fake_now -= 60;
+    for (unsigned i = 0; i < 12; i++) {
+        set_side(1, 0, i == 3 ? 17 : 1);
+        fake_now += 300;
+        sample_enemy_presence();
+    }
+    assert(report(&good).find("A horde of evil") != std::string::npos);
 
     // Band edges.
     const std::pair<unsigned, const char *> bands[] = {
-        { 1, "A faint stench" }, { 4, "A faint stench" }, { 5, "Shadows gathered" },
-        { 8, "Shadows gathered" }, { 9, "War drums" }, { 12, "War drums" },
-        { 13, "A dark host" }, { 16, "A dark host" }, { 17, "A horde of evil" },
-        { 40, "A horde of evil" },
+        { 0, "The land lay quiet" }, { 1, "A faint stench" }, { 4, "A faint stench" },
+        { 5, "Shadows gathered" }, { 8, "Shadows gathered" }, { 9, "War drums" },
+        { 12, "War drums" }, { 13, "A dark host" }, { 16, "A dark host" },
+        { 17, "A horde of evil" }, { 40, "A horde of evil" },
     };
     for (const auto &[count, words] : bands) {
-        for (auto &sample : enemy_presence_samples)
-            sample = {};
-        enemy_presence_samples[0] = { fake_now, 0, count };
+        run_hour(0, count);
         assert(report(&good).find(words) != std::string::npos);
     }
     const std::pair<unsigned, const char *> good_bands[] = {
@@ -129,34 +164,9 @@ int main()
         { 16, "An army of the light" }, { 17, "A shining host" }, { 40, "A shining host" },
     };
     for (const auto &[count, words] : good_bands) {
-        enemy_presence_samples[0] = { fake_now, count, 0 };
+        run_hour(count, 0);
         assert(report(&evil).find(words) != std::string::npos);
     }
-
-    // Samples older than an hour drop out of the rolling window.
-    for (auto &sample : enemy_presence_samples)
-        sample = {};
-    enemy_presence_samples[3] = { fake_now - 3600, 0, 20 };
-    enemy_presence_samples[4] = { fake_now - 3599, 0, 2 };
-    assert(report(&good).find("A faint stench") != std::string::npos);
-    assert(report(&good).find("(Scouts reported 59 minutes ago.)") != std::string::npos);
-    enemy_presence_samples[4] = {};
-    assert(report(&good).empty());
-
-    // Twelve five-minute samples fill the ring; the thirteenth replaces the oldest.
-    for (auto &sample : enemy_presence_samples)
-        sample = {};
-    enemy_presence_next = 0;
-    fake_now += 300;
-    set_side(0, 0, 0);
-    for (unsigned i = 0; i < 13; i++) {
-        set_side(1, 0, i == 0 ? 30 : 1);
-        sample_enemy_presence();
-        fake_now += 300;
-    }
-    assert(enemy_presence_next == 1);
-    fake_now -= 300;
-    assert(report(&good).find("A faint stench") != std::string::npos);
     puts("enemy presence cases passed");
 }
 """.replace("@PRESENCE@", presence).replace("@MORPH@", morph)
