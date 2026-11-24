@@ -3846,6 +3846,8 @@ int camp(P_char ch)
 					"You cannot rest while you carry two artifacts of one type. Give one away or drop one first.\r\n",
 					ch);
 			}
+			else if (refuse_looter_rest(ch))
+				affect_from_char(ch, TAG_CAMP);
 			else
 			{
 				/*

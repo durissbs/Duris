@@ -972,6 +972,12 @@ do_get_finalize_container_success(P_char ch, P_char hood, P_obj s_obj, P_obj o_o
 	else if (!do_get_finalize_container_item(ch, s_obj, o_obj, total, found, post_tag))
 		return;
 
+	// Taking from the other side's corpse makes a looter, who may not rest for a while.
+	if (corpse_flag && IS_PC(ch) && !IS_TRUSTED(ch) &&
+	    s_obj->value[CORPSE_RACEWAR] != RACEWAR_NONE &&
+	    GET_RACEWAR(ch) != s_obj->value[CORPSE_RACEWAR] && !affected_by_spell(ch, TAG_LOOTER))
+		set_short_affected_by(ch, TAG_LOOTER, 5 * 60 * WAIT_SEC);
+
 	if ((item_type == ITEM_CORPSE) && IS_SET(o_obj->value[1], PC_CORPSE))
 	{
 		logit(LOG_CORPSE, "%s%s: corpse of %s from %s", GET_NAME(ch),
