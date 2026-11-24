@@ -27732,7 +27732,7 @@ You must be alive, able to move and see, and sheltered from rain or snow.
 Water and extreme heat can interfere. Animals, demons, dragons, Illithids,
 undead and angels normally cannot smoke. Trolls require wet conditions;
 Thri-Kreen cannot use nostril pipes.
-See also: MEDICUS, GOOTWIET, EFFECTS
+See also: MEDICUS, GOOTWIET, BLUE HAZE, BLACK KUSH, OCULARIUS, EFFECTS
 ===========================================================================
 
 #
@@ -28573,12 +28573,31 @@ Blue Haze is a smoking herb. Carry the herb and a pipe, or hold them in
 your hands. Smoking consumes the herb and leaves your lungs needing time
 to recover; the normal smoking restrictions apply.
 
-It changes casting speed and can grant temporary hit points and hitroll.
-Existing vitality spells prevent its vitality benefits from stacking.
-Black Kush halves its duration. Smoking Blue Haze again extends the
-existing effect rather than adding another set of bonuses; it does not
-add vitality benefits that were blocked on the first smoke.
-See also: HERBS, EFFECTS, VITALITY
+It improves your armor class, speeds your casting slightly and can grant
+temporary hit points and hitroll. The first smoke also removes the Slow
+spell, but not the slowness from Ocularius. Existing vitality spells
+prevent its vitality benefits from stacking. Black Kush halves its
+duration.
+
+Smoking Blue Haze again extends all of its existing effects rather than
+adding another set of bonuses; it does not add vitality benefits that
+were blocked on the first smoke.
+See also: HERBS, OCULARIUS, EFFECTS, VITALITY
+===========================================================================
+
+#
+OCULARIUS (General Information)
+===========================================================================
+Syntax: smoke <herb> <pipe>
+
+Ocularius is a smoking herb that sharpens your senses at a cost. It lets
+you sense life and see with infravision, and senses holiness. Good
+characters detect evil, evil characters detect good, and others detect
+both. It also slows you, and it removes the Haste spell when smoked.
+
+Smoking Ocularius again while affected does nothing; wait for the effect
+to wear off. Blue Haze cannot remove Ocularius's slowness.
+See also: HERBS, BLUE HAZE, EFFECTS
 ===========================================================================
 
 #
@@ -28831,7 +28850,7 @@ smoking equipment. Its effects depend on the herb's strength and your
 attributes: it modifies Intelligence, Wisdom and Power, lowers Strength
 and Agility, and slows ordinary combat rounds. Psionicists also receive
 a mana-regeneration bonus. Blue Haze halves the new dose's duration.
-Smoking it again while affected extends an existing effect's duration.
+Smoking it again while affected extends all of its existing effects.
 #
 Lifeleak
 Lifeleak is a poison, not a spell you cast by that name. Each poison
