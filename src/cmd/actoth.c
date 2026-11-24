@@ -4659,7 +4659,7 @@ void do_idea(P_char ch, char *argument, int /*cmd*/)
 	}
 
 	send_to_char("The idea has been logged - thanks for your input.\r\n", ch);
-	discord_idea_export(ch, argument);
+	discord_report_export("idea", ch, argument);
 }
 
 void do_typo(P_char ch, char *argument, int /*cmd*/)
@@ -4693,6 +4693,8 @@ void do_typo(P_char ch, char *argument, int /*cmd*/)
 	}
 
 	send_to_char("The typo has been logged - thanks for your input.\r\n", ch);
+	snprintf(buf, MAX_STRING_LENGTH, "[%d] %s", world[ch->in_room].number, argument);
+	discord_report_export("typo", ch, buf);
 }
 
 void do_bug(P_char ch, char *argument, int /*cmd*/)
@@ -4732,6 +4734,8 @@ void do_bug(P_char ch, char *argument, int /*cmd*/)
 	send_to_char(
 		"If you specified the symptoms of the bug and steps that led to it, it will be reviewed shortly.\r\n",
 		ch);
+	snprintf(buf, MAX_STRING_LENGTH, "[%d] %s", world[ch->in_room].number, argument);
+	discord_report_export("bug", ch, buf);
 }
 
 void do_cheat(P_char ch, char *argument, int /*cmd*/)

@@ -15,10 +15,12 @@ assert "InsertIntoFile" not in actoth
 for command, constant in [("do_idea", "IDEA_FILE"), ("do_typo", "TYPO_FILE"), ("do_bug", "BUG_FILE")]:
     body = extract_function("actoth.c", f"void {command}(")
     assert f"if (!AppendToFile({constant}, buf))" in body, command
-# The idea goes to Discord only after it is saved.
-idea = extract_function("actoth.c", "void do_idea(")
-assert idea.index("AppendToFile(") < idea.index("discord_idea_export(")
-assert idea.count("discord_idea_export(") == 1
+# Each report goes to Discord on its own channel, once, only after it is saved.
+for command, channel in [("do_idea", "idea"), ("do_typo", "typo"), ("do_bug", "bug")]:
+    body = extract_function("actoth.c", f"void {command}(")
+    call = f'discord_report_export("{channel}", ch, '
+    assert body.count(call) == 1, command
+    assert body.index("AppendToFile(") < body.index(call), command
 assert "read_file_tail(path, MAX_STRING_LENGTH, tail)" in extract_function(
     "specs.object.c", "int changelog(")
 
