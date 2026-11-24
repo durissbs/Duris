@@ -31,6 +31,19 @@ Newest first; later updates replace older rules. Longer archive on web.
   side's fallen, to return their gear, is not affected.
 &+Y-&n See &+C'help artifact'&n, &+C'help camp'&n and &+C'help rent'&n.
 
+&+CFood and potions&n
+&+Y-&n Eating and quaffing now tell you how many game hours until you can
+  eat or quaff again, and your stomach growls once you could eat again.
+  See &+C'help eat'&n and &+C'help quaff'&n.
+
+&+CWho is out there&n
+&+Y-&n The enemy report in &+C'who'&n is now published once an hour. &+L"Scouts
+  reported X minutes ago"&n counts up from 0 to 59, and the first report
+  appears an hour after each boot.
+
+&+CIdeas&n
+&+Y-&n Ideas you send with &+C'idea'&n now also reach staff on Discord.
+
 &+R11/24/26&n &+L-&n &+YFair prices, watchful scouts and rewards that stay put&n
 &+W----------------------------------------------------------------------&n
 
