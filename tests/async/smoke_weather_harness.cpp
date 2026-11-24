@@ -85,8 +85,15 @@ int get_property(const char *, int)
 {
 	return 0;
 }
-affected_type *affect_to_char(P_char, affected_type *)
+static int spell_pulse_affects;
+static int last_spell_pulse;
+affected_type *affect_to_char(P_char, affected_type *af)
 {
+	if (af->location == APPLY_SPELL_PULSE)
+	{
+		spell_pulse_affects++;
+		last_spell_pulse = af->modifier;
+	}
 	return nullptr;
 }
 P_char get_linked_char(P_char, unsigned short)
@@ -102,6 +109,8 @@ int GET_CLASS(P_char, unsigned int)
 {
 	return 0;
 }
+
+void herb_blue_haze(int level, int duration, P_char smoker);
 
 static char_data make_character(int race, int room_num)
 {
@@ -327,6 +336,15 @@ int main()
 		last_output.clear();
 		do_smoke(&ch, arg, 0);
 		assert(last_output.find("kicked up by your movement") != std::string::npos);
+	}
+
+	// 11. Blue Haze speeds casting: its spell pulse modifier is negative.
+	{
+		char_data ch = make_character(RACE_HUMAN, 2001);
+		spell_pulse_affects = 0;
+		herb_blue_haze(25, 10, &ch);
+		assert(spell_pulse_affects == 1);
+		assert(last_spell_pulse < 0);
 	}
 
 	std::printf("All underground and surface smoking weather tests passed successfully.\n");

@@ -673,8 +673,8 @@ void herb_blue_haze(int level, int duration, P_char smoker)
 	af.modifier = -(4 * level / 5) * multi; // -20 AC at herb->level = 25
 	af.location = APPLY_AC;
 	affect_to_char(smoker, &af);
-	// Slight decrease in Apply_Casting_Pulse.
-	af.modifier = number(1, 3);
+	// Slight decrease in Apply_Casting_Pulse: a negative spell pulse casts faster.
+	af.modifier = -number(1, 3);
 	af.location = APPLY_SPELL_PULSE;
 	affect_to_char(smoker, &af);
 	// Do not stack Vitalities!
