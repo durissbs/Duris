@@ -434,10 +434,10 @@ static void text_and_bounds(int peer)
 static void ideas(int peer)
 {
 	player sender("&+rZoë&n");
-	discord_idea_export(&sender.ch, "&+gMore quests&n in $$Torin");
+	discord_report_export("idea", &sender.ch, "&+gMore quests&n in $$Torin");
 	event(peer, "Zoë", "More quests in $Torin", "idea");
 	const auto dropped = discord_bridge_get_status().dropped_events;
-	discord_idea_export(&sender.ch, std::string(MAX_STRING_LENGTH, 'x').c_str());
+	discord_report_export("idea", &sender.ch, std::string(MAX_STRING_LENGTH, 'x').c_str());
 	assert(received(peer).empty());
 	assert(discord_bridge_get_status().dropped_events == dropped + 1);
 
@@ -445,17 +445,33 @@ static void ideas(int peer)
 	player spammer("Spammer"), other("Other");
 	for (int i = 0; i < 5; ++i)
 	{
-		discord_idea_export(&spammer.ch, "part");
+		discord_report_export("idea", &spammer.ch, "part");
 		event(peer, "Spammer", "part", "idea");
 	}
 	for (int i = 0; i < 20; ++i)
-		discord_idea_export(&spammer.ch, "flood");
+		discord_report_export("idea", &spammer.ch, "flood");
 	assert(received(peer).empty());
 	assert(discord_bridge_get_status().dropped_events == dropped + 21);
-	discord_idea_export(&other.ch, "still heard");
+	discord_report_export("idea", &other.ch, "still heard");
 	event(peer, "Other", "still heard", "idea");
 	discord_petition_export(&spammer.ch, "petitions are not throttled");
 	event(peer, "Spammer", "petitions are not throttled");
+
+	// Bugs and typos use their own channels and share the report limit with ideas.
+	player reporter("Reporter");
+	discord_report_export("bug", &reporter.ch, "[3001] &+rsword&n vanished");
+	event(peer, "Reporter", "[3001] sword vanished", "bug");
+	discord_report_export("typo", &reporter.ch, "[3001] teh");
+	event(peer, "Reporter", "[3001] teh", "typo");
+	for (int i = 0; i < 3; ++i)
+	{
+		discord_report_export("idea", &reporter.ch, "more");
+		event(peer, "Reporter", "more", "idea");
+	}
+	const auto before_flood = discord_bridge_get_status().dropped_events;
+	discord_report_export("bug", &reporter.ch, "[3001] sixth report");
+	assert(received(peer).empty());
+	assert(discord_bridge_get_status().dropped_events == before_flood + 1);
 }
 
 static void unavailable(int peer)
