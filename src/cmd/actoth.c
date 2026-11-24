@@ -4936,14 +4936,25 @@ int combat_mind_quaff_chance(int chance)
 	return (int)(chance * 1.25);
 }
 
+// Tell the quaffer when their potion timer ends, after the given sentence.
+static void send_potion_cooldown(P_char ch, const char *sentence)
+{
+	struct affected_type *af = get_spell_from_char(ch, TAG_POTION_TIMER);
+	if (!af)
+		return;
+
+	// Game hours, like ship times: the ticks left plus the one in progress.
+	int hours = af->duration + 1;
+	send_to_char_f(ch, "%s. You can quaff another in about &+W%d hour%s&+c.&n\n", sentence,
+		       hours, hours == 1 ? "" : "s");
+}
+
 void do_quaff(P_char ch, char *argument, int /*cmd*/)
 {
 	P_obj bottle;
 	int i, j, chance;
 	bool equipped;
 	char Gbuf1[MAX_STRING_LENGTH];
-	struct affected_type *af2;
-	struct affected_type *next;
 
 	if (!IS_ALIVE(ch))
 		return;
@@ -4979,37 +4990,8 @@ void do_quaff(P_char ch, char *argument, int /*cmd*/)
 
 	if (affected_by_spell(ch, TAG_POTION_TIMER))
 	{
-		// gellz added potion messages for timer durations  070316
-		for (af2 = ch->affected; af2; af2 = next)
-		{
-			next = af2->next;
-			if (af2->type == TAG_POTION_TIMER)
-			{
-				break;
-			}
-		}
-		// just looped affects, found potion timer
-		if (af2)
-		{
-			i = af2->duration * 100;
-			j = get_property("potion.timer", 100.00);
-			i = (int)(i / j);
-			if (i <= 1)
-			{
-				snprintf(
-					Gbuf1, MAX_STRING_LENGTH,
-					"&+cYou feel &+Calmost &+cready to try another potion&+g.&n\n");
-			}
-			else
-			{
-				snprintf(
-					Gbuf1, MAX_STRING_LENGTH,
-					"&+cYou dont feel like another potion would do you any good yet.&n\n");
-			}
-			send_to_char(Gbuf1, ch);
-			/*    send_to_char("Your body cannot yet handle another jolt of magical influence!\r\n", ch);
-			 */
-		}
+		send_potion_cooldown(ch,
+				     "&+cYour body is still &+Csettling&+c from your last potion");
 		return;
 	}
 
@@ -5099,6 +5081,7 @@ void do_quaff(P_char ch, char *argument, int /*cmd*/)
 		af.duration = 3;
 		af.flags = AFFTYPE_NODISPEL;
 		affect_to_char(ch, &af);
+		send_potion_cooldown(ch, "&+cThe potion's magic &+Csettles&+c into you");
 
 		for (i = 1; i < 4; i++)
 		{

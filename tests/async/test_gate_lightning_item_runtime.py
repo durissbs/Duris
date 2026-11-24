@@ -34,6 +34,7 @@ commands = "\n".join(extract_function(path, signature) for path, signature in [
     ("cmd/actoth.c", "void do_use("),
     ("cmd/actoth.c", "void do_recite("),
     ("cmd/actoth.c", "int combat_mind_quaff_chance("),
+    ("cmd/actoth.c", "static void send_potion_cooldown("),
     ("cmd/actoth.c", "void do_quaff("),
     ("cmd/actnew.c", "static int throw_potion_lag("),
     ("cmd/actnew.c", "static int throw_potion_rest("),
@@ -110,6 +111,9 @@ bool gain_epic(P_char,int,int,int) { return true; }
 affected_type *affect_to_char(P_char,affected_type *af) {
     assert(af->type==TAG_POTION_TIMER); ++potion_timers; return nullptr;
 }
+// Timers are counted, not kept, so the cooldown message has nothing to report.
+affected_type *get_spell_from_char(P_char,int,void *,int) { return nullptr; }
+void send_to_char_f(P_char,const char *,...) { assert(false); }
 void set_obj_affected(P_obj,int,sh_int,sh_int) {}
 void event_portal_owner_check(P_char,P_char,P_obj,void *) { assert(false); }
 P_obj read_object(int vnum,int) {
