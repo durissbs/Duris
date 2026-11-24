@@ -372,6 +372,25 @@ def run(binary):
                 do(necro, "drop backpack")
                 passed("I8: a second artifact of one type can be looted under the loot grace; a third, wearing either and a give are refused, counting artifacts inside a container")
 
+                # A player's pet carries no artifacts: ordered to pick one up, or given one, it refuses.
+                assert THIEF in do(staff, "stat char wisp"), "'wisp' must name the thief's pet"
+                do(thief, "drop all")  # Room for the stone the thief offers below.
+                do(staff, "drop ioun")
+                # The pet obeys: it takes an ordinary item.
+                assert "You have created" in do(staff, "load obj 6")
+                do(staff, "drop gem")
+                do(thief, "order followers get gem")
+                assert "unmade treasure item lies here" not in do(staff, "look").lower()
+                floating = do(staff, "look").count("stone floats here.")
+                do(thief, "order followers get ioun")
+                do(thief, "order followers get backpack")
+                text = do(staff, "look")
+                assert text.count("stone floats here.") == floating and "backpack" in text.lower(), text
+                assert "You get" in do(thief, "get ioun")
+                assert "a pet cannot carry artifacts." in do(thief, "give ioun wisp")
+                do(thief, "drop ioun")
+                passed("I8: a player's pet can neither pick up nor be given an artifact")
+
                 do(staff, f"cast 'concealment' {BARD}")
                 until(staff, "stat char " + BARD, "'concealment'")
                 do(staff, f"cast 'faerie fire' {BARD}")

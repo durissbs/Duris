@@ -85,6 +85,8 @@ static bool account_bound_reward_owner(P_char, P_obj) { return false; }
 struct artifact_counts { int by_type[4] = {}; };
 static void artifact_count_incoming(P_char, P_obj, artifact_counts &) {}
 static bool artifact_over_limit(P_char, const artifact_counts &, int) { return false; }
+#define IS_PC_PET(ch) false
+static bool holds_artifact(P_obj) { return false; }
 static bool item_command_object_is_takeable(P_char, P_obj object)
 {
     return object->weight >= 0;
