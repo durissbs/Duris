@@ -8375,7 +8375,7 @@ are grouped with the caster.
 #0
 
 Eat
-Eat - Last Edited: 2007-04-19 19:17:11 by Unknown
+Eat - Last Edited: 2026-11-24
 =================================================
 Syntax:  eat <food>
          drink <drink_container>
@@ -8383,6 +8383,8 @@ Syntax:  eat <food>
          taste <food>
 These commands are for when you"re hungry or thirsty. Sip and taste let you
 sample the viands, whereas eat and drink let you ingest your fill.
+Food grants its benefits for a while, and you cannot eat again until it wears
+off. You are told how long when you eat, and again when you are hungry.
 	See also:quaff
 
 #0
@@ -20980,13 +20982,13 @@ Double Attack|double attack ,Triple Attack|triple attack
 #0
 
 Quaff
-Quaff - Last Edited: 2014-09-30 01:42:08 by ashyel
+Quaff - Last Edited: 2026-11-24
 ==================================================
 Syntax:  quaff <potion>
 Quaff is used to consume a magical potion. Because potions are magical,
 they will have no effects if quaffed in a "No Magic" room.  Also, be forewarned! Trying to quaff while in battle may cause you to spill the contents of your bottle instead of consuming them.
 Please note:
-After having quaffed one potion, you will experience a 3-4 minute waiting time before you are able to quaff again.
+After having quaffed one potion, you must wait 4 game hours (just under 5 minutes) before you are able to quaff again. You are told how long when you quaff, and again when you are ready.
 
 #0
 

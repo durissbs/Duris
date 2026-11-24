@@ -184,6 +184,10 @@ static void check_quaff(int level, bool held, bool epic, int failure, bool fight
         assert(output.find("vial disappears") == std::string::npos);
         assert(output.find("You have gained") == std::string::npos);
         assert(held ? ch.equipment[HOLD] == &bottle : ch.carrying == &bottle);
+        // Three ticks left plus the one in progress, in game hours like ship times.
+        if (potion_timer)
+            assert(output.find("last potion. You can quaff another in about &+W4 hours") !=
+                   std::string::npos);
     } else if (epic) {
         assert(output.find("You have gained 75 epic points") != std::string::npos);
         assert(output.find("suddenly feel.. epic") != std::string::npos);
@@ -327,7 +331,7 @@ start = score.index('#ifdef STANCES_ALLOWED')
 start = score.index('#endif', start) + len('#endif')
 end = score.index('\n\tEpicBonusData ebdata;', start)
 render = 'void render_epics(P_char ch) { char buf[MAX_STRING_LENGTH]; int i; P_obj nexus;\n' + score[start:end] + '\n}\n'
-code = PRELUDE + context + functions + extract_function('actoth.c', 'int combat_mind_quaff_chance(') + extract_function('actoth.c', 'void do_quaff(') + render + DRIVER
+code = PRELUDE + context + functions + extract_function('actoth.c', 'int combat_mind_quaff_chance(') + extract_function('actoth.c', 'static void send_potion_cooldown(') + extract_function('actoth.c', 'void do_quaff(') + render + DRIVER
 build_root = ROOT / 'bin/tests'
 build_root.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='epic-gain-', dir=build_root) as directory:

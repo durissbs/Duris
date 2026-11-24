@@ -23,6 +23,7 @@ PRELUDE = r'''
 #include "world/events.h"
 #include "world/falling.h"
 #include <cassert>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -41,7 +42,10 @@ const char *fill_words[] = {"in", "from", "with", "the", "on", "at", "to", "\n"}
 
 void act(const char *text, int, P_char, P_obj, void *, int) { output += text; }
 void send_to_char(const char *text, P_char) { output += text; }
-void send_to_char_f(P_char, const char *, ...) { assert(false); }
+void send_to_char_f(P_char, const char *format, ...) {
+    char buffer[256]; va_list args; va_start(args, format);
+    vsnprintf(buffer, sizeof buffer, format, args); va_end(args); output += buffer;
+}
 P_obj get_obj_in_list_vis(P_char, const char *name, P_obj list, bool) {
     for (; list; list = list->next_content) if (isname(name, list->name)) return list;
     return nullptr;
@@ -99,7 +103,9 @@ def production():
         ("interp.c", "int fill_word("),
         ("interp.c", "char *one_argument("),
         ("affects.c", "bool affected_by_spell(P_char ch, int skill)"),
+        ("affects.c", "struct affected_type *get_spell_from_char(P_char ch, int spell, void *context, int flagMask)"),
         ("handler.c", "unsigned int char_slice(P_char c, unsigned int slices)"),
+        ("actobj.c", "static void send_hunger_cooldown("),
         ("actobj.c", "void do_eat("),
     ))
     code += "\n#define AFFECT_UPDATE_SLICES 20\n"
@@ -111,7 +117,7 @@ static void reset() {
     while (eater.carrying) extract_obj(eater.carrying);
     while (eater.affected) affect_remove(&eater, eater.affected);
     eater = {}; pc = {}; eater.only.pc = &pc;
-    eater.player.level = 30; eater.player.race = RACE_HUMAN;
+    eater.player.level = 30; eater.player.race = RACE_HUMAN; eater.specials.position = STAT_NORMAL;
     eater.player.name = const_cast<char *>("Perchtest");
     consumed = 0; output.clear();
 }
@@ -139,6 +145,8 @@ static int food_bonus(int location) {
 static void perch() {
     reset(); supply(356); eat("perch");
     assert(consumed == 1 && !eater.carrying);
+    // Game hours, like ship times: ten ticks left plus the one in progress.
+    assert(output.find("&+Ysated&+y. You'll be hungry again in about &+W11 hours&+y.") != std::string::npos);
     assert(food_bonus(APPLY_HIT_REG) == 30 && food_bonus(APPLY_MOVE_REG) == 15);
     int count = 0;
     for (auto *af = eater.affected; af; af = af->next) {
@@ -148,7 +156,7 @@ static void perch() {
     }
     assert(count == 2 && food_bonus(APPLY_HITROLL) == 0 && food_bonus(APPLY_DAMROLL) == 0);
     auto *second = supply(356); output.clear(); eat("perch");
-    assert(output.find("sated already") != std::string::npos);
+    assert(output.find("&+Ysated&+y already. You'll be hungry again in about &+W11 hours&+y.") != std::string::npos);
     assert(consumed == 1 && eater.carrying == second);
     assert(food_bonus(APPLY_HIT_REG) == 30 && food_bonus(APPLY_MOVE_REG) == 15);
 
@@ -159,6 +167,8 @@ static void perch() {
         for (auto *af = eater.affected; af; af = af->next) assert(af->duration == remaining);
         assert(food_bonus(APPLY_HIT_REG) == 30 && food_bonus(APPLY_MOVE_REG) == 15);
     }
+    output.clear(); eat("perch");
+    assert(output.find("already. You'll be hungry again in about &+W1 hour&+y.") != std::string::npos);
     affect_update(0); assert(!eater.affected);
     eat("perch"); assert(consumed == 2 && food_bonus(APPLY_HIT_REG) == 30);
 }
@@ -168,7 +178,7 @@ static void retained_instance() {
     eat("perch");
     assert(consumed == 1 && food_bonus(APPLY_HIT_REG) == 15 && food_bonus(APPLY_MOVE_REG) == 15);
     auto *fresh = supply(356); output.clear(); eat("perch");
-    assert(output.find("sated already") != std::string::npos && eater.carrying == fresh);
+    assert(output.find("&+Ysated&+y already") != std::string::npos && eater.carrying == fresh);
     while (eater.affected) affect_remove(&eater, eater.affected);
     eat("perch");
     assert(consumed == 2 && food_bonus(APPLY_HIT_REG) == 30 && food_bonus(APPLY_MOVE_REG) == 15);

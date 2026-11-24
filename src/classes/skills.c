@@ -5220,7 +5220,7 @@ void create_tags()
 	TAG_CREATE_WITH_MESSAGES(
 		"potion timer", TAG_POTION_TIMER,
 		"&+cYou feel like a potion &+Ccould&+c do you good once again.&n",
-		"&+c$n's body appears to recover from the affects of the &+Wpotion&+c.&n");
+		"&+c$n's body appears to recover from the effects of the &+Wpotion&+c.&n");
 
 	// Prestige Races
 	TAG_CREATE("pr - rock gnome", PR_ROCKGNOME);
@@ -5232,7 +5232,8 @@ void create_tags()
 		"crippled", TAG_CRIPPLED, "&+yYou feel &+Ystrength &+yreturn to your legs.&n",
 		"&+W$n's &+yleg looks &+Ystronger &+yas the wounds covering them dissipate.&n");
 
-	TAG_CREATE("eaten food", TAG_EATEN);
+	TAG_CREATE_WITH_MESSAGES("eaten food", TAG_EATEN,
+				 "&+yYour stomach &+Ygrowls&+y. You could eat again.&n", NULL);
 	TAG_CREATE("recent frag obj", TAG_OBJ_RECENT_FRAG);
 	TAG_CREATE_WITH_MESSAGES(
 		"phantasmal form", TAG_PHANTASMAL_FORM,

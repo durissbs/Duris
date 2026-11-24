@@ -4820,6 +4820,21 @@ void do_drink(P_char ch, char *argument, int /*cmd*/)
 	act("It's empty already.", FALSE, ch, 0, 0, TO_CHAR);
 }
 
+// Tell the eater how long their food lasts, from the TAG_EATEN affect.
+static void send_hunger_cooldown(P_char ch, const char *sated)
+{
+	struct affected_type *af = get_spell_from_char(ch, TAG_EATEN);
+	if (!af)
+		return;
+
+	// Game hours, like ship times: the ticks left plus the one in progress.
+	int hours = af->duration + 1;
+	send_to_char_f(
+		ch,
+		"&+yYou feel &+Ysated&+y%s. You'll be hungry again in about &+W%d hour%s&+y.&n\n",
+		sated, hours, hours == 1 ? "" : "s");
+}
+
 void do_eat(P_char ch, char *argument, int /*cmd*/)
 {
 	P_obj temp;
@@ -4895,7 +4910,7 @@ void do_eat(P_char ch, char *argument, int /*cmd*/)
 	 */
 	if (affected_by_spell(ch, TAG_EATEN) && !IS_TRUSTED(ch))
 	{
-		act("You feel sated already.", FALSE, ch, 0, 0, TO_CHAR);
+		send_hunger_cooldown(ch, " already");
 		return;
 	}
 
@@ -5014,10 +5029,11 @@ void do_eat(P_char ch, char *argument, int /*cmd*/)
 				af.location = APPLY_HITROLL;
 				affect_to_char(ch, &af);
 			}
+			send_hunger_cooldown(ch, "");
 		}
 		else
 		{
-			act("You feel sated already.", FALSE, ch, 0, 0, TO_CHAR);
+			send_hunger_cooldown(ch, " already");
 			return;
 		}
 
