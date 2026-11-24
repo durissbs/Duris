@@ -43,6 +43,15 @@ Newest first; later updates replace older rules. Longer archive on web.
   else's hands, the quest giver tells you instead of handing out a copy
   that would vanish. Your hand-in items are still taken.
 
+&+CEating and potions&n
+&+Y-&n Eating now tells you how long your food lasts, such as &+L"You'll be
+  hungry again in about 11 hours."&n Trying to eat early tells you how
+  long is left, and &+L"Your stomach growls"&n when you can eat again.
+&+Y-&n Quaffing works the same way: you are told how many hours until you
+  can quaff another potion, both when you quaff and when you try too soon.
+&+Y-&n Times are in game hours, like ship summoning. One game hour is 75
+  seconds. See &+C'help eat'&n and &+C'help quaff'&n.
+
 &+CClients and community&n
 &+Y-&n MSP clients redraw far less: group panels skip regeneration ticks
   (losses and damage still show), ship lookouts draw the map once, and

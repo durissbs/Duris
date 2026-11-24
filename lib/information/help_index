@@ -5153,6 +5153,8 @@ Syntax:  eat <food>
 
 These commands are for when you're hungry or thirsty. Sip and taste let you
 sample the viands, whereas eat and drink let you ingest your fill.
+Food grants its benefits for a while, and you cannot eat again until it wears
+off. You are told how long when you eat, and again when you are hungry.
 ===========================================================================
 See also: QUAFF
 
@@ -13085,7 +13087,11 @@ QUAFF POTIONS
 Syntax:  quaff <potion>
 
 Quaff is used to consume a (magical) potion. Because potions are magical,
-they will have no effects if quaffed in a "No Magic" room.
+they will have no effects if quaffed in a "No Magic" room. Quaffing while
+in battle may spill the potion instead.
+After quaffing a potion, you must wait 4 game hours (just under 5 minutes)
+before you can quaff again. You are told how long when you quaff, and again
+when you are ready.
 ===========================================================================
 See also: MAGIC-USER 
 
