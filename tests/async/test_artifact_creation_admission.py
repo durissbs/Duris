@@ -339,23 +339,58 @@ int main() {
  artifact_cache_loaded=true;
  {
   char_data player{}; pc_only_data pc{}; player.only.pc=&pc; pc.pid=77;
-  obj_data incoming{}, taking{}; incoming.R_num=2; taking.R_num=0;
-  incoming.name=taking.name=const_cast<char *>("ordinary artifact");
-  incoming.extra_flags=taking.extra_flags=ITEM_ARTIFACT;
+  obj_data incoming{}; incoming.R_num=2;
+  incoming.name=const_cast<char *>("ordinary artifact");
+  incoming.extra_flags=ITEM_ARTIFACT;
   artifact_rows[900]={true,ARTIFACT_ON_PC,77,100,ARTIFACT_MAJOR};
-  assert(artifact_second_of_type(&player,&incoming));
-  assert(artifact_second_of_type(&player,&incoming,&taking));
+  assert(artifact_others_of_type(&player,&incoming)==1);
+  assert(!artifact_holds_extra(&player));
   incoming.name=const_cast<char *>("unique");
-  assert(!artifact_second_of_type(&player,&incoming));
-  assert(!artifact_second_of_type(&player,&incoming,&taking));
+  assert(artifact_others_of_type(&player,&incoming)==0);
   incoming.wear_flags=ITEM_WEAR_IOUN;
-  assert(!artifact_second_of_type(&player,&incoming));
+  assert(artifact_others_of_type(&player,&incoming)==0);
   incoming.wear_flags=0; incoming.name=const_cast<char *>("ordinary artifact");
+  // The artifact itself is never counted, so moving one's own stays legal.
   artifact_rows[902]={true,ARTIFACT_ON_PC,77,100,ARTIFACT_MAJOR};
-  assert(!artifact_second_of_type(&player,&incoming)); // Moving one's own artifact is legal.
+  assert(artifact_others_of_type(&player,&incoming)==1);
+  assert(artifact_holds_extra(&player));
+  artifact_rows[903]={true,ARTIFACT_ON_PC,77,100,ARTIFACT_MAJOR};
+  assert(artifact_others_of_type(&player,&incoming)==2);
+  artifact_rows[903].location=78; // Another player's artifact does not count.
+  assert(artifact_others_of_type(&player,&incoming)==1);
   artifact_rows.erase(902); player.player.level=IMMORTAL;
-  assert(!artifact_second_of_type(&player,&incoming));
-  assert(!artifact_second_of_type(&player,&incoming,&taking));
+  artifact_rows[903].location=77;
+  assert(artifact_others_of_type(&player,&incoming)==0);
+  assert(!artifact_holds_extra(&player));
+  artifact_rows.clear();
+ }
+ {
+  // Artifacts inside a container count toward the limit; ones already held do not.
+  char_data player{}; pc_only_data pc{}; player.only.pc=&pc; pc.pid=77;
+  obj_data bag{}, inner{}, plain{};
+  bag.name=plain.name=const_cast<char *>("bag"); inner.name=const_cast<char *>("ordinary artifact");
+  inner.R_num=3; inner.extra_flags=ITEM_ARTIFACT; bag.contains=&inner;
+  assert(holds_artifact(&bag) && holds_artifact(&inner) && !holds_artifact(&plain));
+  artifact_counts incoming;
+  artifact_count_incoming(&player,&bag,incoming);
+  assert(incoming.by_type[ARTIFACT_MAJOR]==1 && incoming.by_type[ARTIFACT_UNIQUE]==0);
+  assert(!artifact_over_limit(&player,incoming,2) && !artifact_over_limit(&player,incoming,1));
+  artifact_rows[900]={true,ARTIFACT_ON_PC,77,100,ARTIFACT_MAJOR};
+  assert(!artifact_over_limit(&player,incoming,2)); // A second may be looted...
+  assert(artifact_over_limit(&player,incoming,1));  // ...but not given.
+  artifact_rows[902]={true,ARTIFACT_ON_PC,77,100,ARTIFACT_MAJOR};
+  assert(artifact_over_limit(&player,incoming,2));  // A third, even in a bag, may not.
+  artifact_counts nothing;
+  assert(!artifact_over_limit(&player,nothing,2));   // Taking no artifact is never over.
+  // The bag's artifact already tracked on this player (moving their own bag) adds nothing.
+  artifact_rows[903]={true,ARTIFACT_ON_PC,77,100,ARTIFACT_MAJOR};
+  artifact_counts own;
+  artifact_count_incoming(&player,&bag,own);
+  assert(own.by_type[ARTIFACT_MAJOR]==0 && !artifact_over_limit(&player,own,2));
+  player.player.level=IMMORTAL;
+  artifact_counts staff;
+  artifact_count_incoming(&player,&bag,staff);
+  assert(staff.by_type[ARTIFACT_MAJOR]==0 && !artifact_over_limit(&player,incoming,1));
   artifact_rows.clear();
  }
  owner_reconciliation_cases();
@@ -1945,11 +1980,11 @@ void monolith_cases() {
   command_output.find("satisfaction")==std::string::npos); owner.player.level=51;
  // Stale tracking repairs from the live wearer before the monolith feeds it. The
  // repair is an arrival, and 902 is tracked on the same holder as a second major,
- // so it warns once; the feeds above, which move nothing, stayed silent.
+ // so it starts the loot grace once; the feeds above, which move nothing, stayed silent.
  artifact_rows.at(900).location=77; use(); assert(monolith.value[0]==1 &&
   artifact_rows.at(900).location==55 && artifact_rows.at(900).timer==initial+21600 &&
-  command_output=="&+RYou hold more than one artifact of the same type. Part with one at once, "
-   "or every artifact you wear or carry will fall to the ground.&n\r\n"
+  command_output=="&+RYou carry two artifacts of the same type. Give one away or drop one "
+   "within 10 minutes, or the newer one falls to the ground. Until then you cannot wear either.&n\r\n"
    "&+RYou feel a sense of satisfaction from above.&n\r\n");
  monolith.value[0]=0; use(); assert(artifact_rows.at(900).timer==initial+21600 &&
   command_output.find("satisfaction")==std::string::npos);

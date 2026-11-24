@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <vector>
 #include <map>
+#include <set>
 #include <climits>
 #include <cmath>
 #include <cerrno>
@@ -2245,6 +2246,135 @@ static int artifact_type(P_obj arti)
 	return IS_IOUN(arti) ? ARTIFACT_IOUN : IS_UNIQUE(arti) ? ARTIFACT_UNIQUE : ARTIFACT_MAJOR;
 }
 
+// The loot grace: a player who comes to hold two artifacts of one type, say by looting
+// a corpse, has a few minutes to part with one before the extra falls to the ground.
+// A grace is kept until it ends, even if the player parts with the extra sooner, so
+// dropping it and picking it up again does not restart the clock.
+struct artifact_loot_grace_row
+{
+	time_t ends;
+	std::set<int> arrivals; // Artifacts that arrived during it: the first to drop.
+};
+static std::map<int, artifact_loot_grace_row> artifact_loot_graces;
+
+static bool artifact_loot_grace_running(int pid)
+{
+	const auto grace = artifact_loot_graces.find(pid);
+	return grace != artifact_loot_graces.end() && grace->second.ends > time(NULL);
+}
+
+// Drops every artifact a player holds beyond one of each type. Of each type the
+// player keeps the one they wear, else one they held before the loot grace began.
+static void artifact_drop_extras(P_char owner)
+{
+	struct held_artifact
+	{
+		P_obj object;
+		int worn_at; // Equipment position, or -1 when carried.
+	};
+	std::vector<held_artifact> held;
+	// Containers are searched too: an artifact in a bag still counts against the limit.
+	auto add = [&held](P_obj object, int worn_at, auto &self) -> void
+	{
+		if (IS_ARTIFACT(object))
+			held.push_back({ object, worn_at });
+		for (P_obj inside = object->contains; inside; inside = inside->next_content)
+			self(inside, -1, self);
+	};
+	for (int pos = 0; pos < MAX_WEAR; pos++)
+		if (owner->equipment[pos])
+			add(owner->equipment[pos], pos, add);
+	for (P_obj object = owner->carrying; object; object = object->next_content)
+		add(object, -1, add);
+
+	const auto grace = artifact_loot_graces.find(GET_PID(owner));
+	const auto arrived = [&grace](const held_artifact &artifact)
+	{
+		return grace != artifact_loot_graces.end() &&
+		       grace->second.arrivals.count(OBJ_VNUM(artifact.object));
+	};
+	bool first = true;
+	for (int type : { ARTIFACT_MAJOR, ARTIFACT_UNIQUE, ARTIFACT_IOUN })
+	{
+		const held_artifact *keep = nullptr;
+		for (const auto &artifact : held)
+			if (artifact_type(artifact.object) == type &&
+			    (!keep || (artifact.worn_at >= 0 && keep->worn_at < 0) ||
+			     (keep->worn_at < 0 && arrived(*keep) && !arrived(artifact))))
+				keep = &artifact;
+		for (const auto &artifact : held)
+		{
+			if (artifact_type(artifact.object) != type || &artifact == keep)
+				continue;
+			P_obj object = artifact.object;
+			if (artifact.worn_at >= 0)
+				unequip_char(owner, artifact.worn_at, FALSE);
+			else if (OBJ_INSIDE(object))
+				obj_from_obj(object);
+			else
+				obj_from_char(object);
+			if (first)
+			{
+				act("&+RThe gods frown upon your greed! $p burns your flesh and falls to the ground!&n",
+				    FALSE, owner, object, 0, TO_CHAR);
+				act("&+R$n screams as $p burns $m and falls to the ground!&n",
+				    FALSE, owner, object, 0, TO_ROOM);
+				first = false;
+			}
+			else
+			{
+				act("&+R$p falls to the ground!&n", FALSE, owner, object, 0,
+				    TO_CHAR);
+				act("&+R$p falls to the ground!&n", FALSE, owner, object, 0,
+				    TO_ROOM);
+			}
+			obj_to_room(object, owner->in_room);
+		}
+	}
+}
+
+// Ends a player's loot grace, dropping any extra artifact they still hold. The event
+// counts scheduler ticks while the grace ends by the clock, so an event that runs
+// early, or one left from an earlier grace, waits for the grace that is running.
+void event_artifact_loot_grace(P_char ch, P_char /*vict*/, P_obj /*obj*/, void * /*arg*/)
+{
+	const auto grace = artifact_loot_graces.find(GET_PID(ch));
+	if (grace == artifact_loot_graces.end())
+		return;
+	const time_t now = time(NULL);
+	if (grace->second.ends > now)
+	{
+		if (!get_scheduled_excluding_current(ch, event_artifact_loot_grace))
+			add_event(event_artifact_loot_grace,
+				  (int)(grace->second.ends - now) * WAIT_SEC, ch, 0, 0, 0, 0, 0);
+		return;
+	}
+	if (ch->in_room != NOWHERE)
+		artifact_drop_extras(ch);
+	artifact_loot_graces.erase(grace);
+}
+
+// A player has just come to hold two artifacts of one type: start their loot grace,
+// or add this one to the grace already running, and tell them how long is left.
+// A grace outlives the character it began on (death replaces it), so this character
+// gets the event that ends it if it has none.
+static void artifact_loot_grace_arrival(P_char owner, int vnum)
+{
+	const time_t now = time(NULL);
+	auto &grace = artifact_loot_graces[GET_PID(owner)];
+	if (grace.ends <= now)
+		grace = { now + 60 * (time_t)get_property("artifact.loot.grace.min", 10), {} };
+	grace.arrivals.insert(vnum);
+	if (!get_scheduled(owner, event_artifact_loot_grace))
+		add_event(event_artifact_loot_grace, (int)(grace.ends - now) * WAIT_SEC, owner, 0,
+			  0, 0, 0, 0);
+	const int minutes = (int)((grace.ends - now + 59) / 60);
+	send_to_char_f(
+		owner,
+		"&+RYou carry two artifacts of the same type. Give one away or drop one within %d minute%s, or the newer one falls to the ground. Until then you cannot wear either.&n\r\n",
+		minutes, minutes == 1 ? "" : "s");
+}
+
 // Update the DB with new artifact data.
 // arti    : The artifact passed.  Should always be a valid arti, in a valid location.
 //             Some error handling is done for invalid locations (mostly move to Limbo).
@@ -2432,8 +2562,7 @@ void artifact_update_sql(P_obj arti, char owned, time_t timer)
 			      found->second.location != location);
 	artifact_row_store(vnum, { new_owned, locType, location, timer, type });
 
-	// The artifact-war sweep strips every artifact from a player who holds two of
-	// one type. Say so when one arrives, while they can still part with it.
+	// A second artifact of one type starts the loot grace.
 	if (arrived)
 	{
 		int held = 0;
@@ -2441,37 +2570,85 @@ void artifact_update_sql(P_obj arti, char owned, time_t timer)
 			held += entry.second.locType == ARTIFACT_ON_PC &&
 				entry.second.location == location && entry.second.type == type;
 		if (held > 1)
-			send_to_char(
-				"&+RYou hold more than one artifact of the same type. Part with one at once, or every artifact you wear or carry will fall to the ground.&n\r\n",
-				owner);
+			artifact_loot_grace_arrival(owner, vnum);
 	}
 }
 
-// True when taking this artifact would give a player a second one of its type.
-// Staff are exempt, and so is an artifact the player is already tracked as holding.
-bool artifact_second_of_type(P_char ch, P_obj arti)
+// How many other artifacts of this one's type the player holds. Staff and NPCs are
+// not limited, so they count none.
+int artifact_others_of_type(P_char ch, P_obj arti)
 {
 	if (!ch || !arti || IS_NPC(ch) || IS_TRUSTED(ch) || !IS_ARTIFACT(arti))
-		return false;
+		return 0;
 
-	bool other = false;
+	int others = 0;
 	for (const auto &entry : artifact_rows)
-	{
-		if (entry.second.locType != ARTIFACT_ON_PC || entry.second.location != GET_PID(ch))
-			continue;
-		if (entry.first == OBJ_VNUM(arti))
-			return false;
-		other |= entry.second.type == artifact_type(arti);
-	}
-	return other;
+		others += entry.first != OBJ_VNUM(arti) && entry.second.locType == ARTIFACT_ON_PC &&
+			  entry.second.location == GET_PID(ch) &&
+			  entry.second.type == artifact_type(arti);
+	return others;
 }
 
-// The same test against an artifact the player is taking in the same batch.
-bool artifact_second_of_type(P_char ch, P_obj arti, P_obj also_taking)
+// True when obj is an artifact or holds one at any depth.
+bool holds_artifact(P_obj obj)
 {
-	return ch && arti && also_taking && arti != also_taking && !IS_NPC(ch) && !IS_TRUSTED(ch) &&
-	       IS_ARTIFACT(arti) && IS_ARTIFACT(also_taking) &&
-	       artifact_type(arti) == artifact_type(also_taking);
+	if (IS_ARTIFACT(obj))
+		return true;
+	for (P_obj inside = obj->contains; inside; inside = inside->next_content)
+		if (holds_artifact(inside))
+			return true;
+	return false;
+}
+
+// Adds to counts, by type, the artifacts in obj and everything inside it that the
+// player does not hold already. Staff and NPCs are not limited, so nothing is added.
+void artifact_count_incoming(P_char ch, P_obj obj, artifact_counts &counts)
+{
+	if (!ch || IS_NPC(ch) || IS_TRUSTED(ch))
+		return;
+	if (IS_ARTIFACT(obj))
+	{
+		const auto row = artifact_rows.find(OBJ_VNUM(obj));
+		if (row == artifact_rows.end() || row->second.locType != ARTIFACT_ON_PC ||
+		    row->second.location != GET_PID(ch))
+			++counts.by_type[artifact_type(obj)];
+	}
+	for (P_obj inside = obj->contains; inside; inside = inside->next_content)
+		artifact_count_incoming(ch, inside, counts);
+}
+
+// True when a player taking the counted artifacts would hold more than limit of a type.
+bool artifact_over_limit(P_char ch, const artifact_counts &counts, int limit)
+{
+	if (!ch || IS_NPC(ch) || IS_TRUSTED(ch))
+		return false;
+
+	artifact_counts held = counts;
+	for (const auto &entry : artifact_rows)
+		if (entry.second.locType == ARTIFACT_ON_PC &&
+		    entry.second.location == GET_PID(ch) && entry.second.type >= ARTIFACT_MAJOR &&
+		    entry.second.type <= ARTIFACT_IOUN)
+			++held.by_type[entry.second.type];
+	for (int type = ARTIFACT_MAJOR; type <= ARTIFACT_IOUN; type++)
+		if (counts.by_type[type] > 0 && held.by_type[type] > limit)
+			return true;
+	return false;
+}
+
+// True when a player holds two artifacts of a type, so must not rent or camp: the
+// extra would leave the game with them.
+bool artifact_holds_extra(P_char ch)
+{
+	if (!ch || IS_NPC(ch) || IS_TRUSTED(ch))
+		return false;
+
+	int held[ARTIFACT_IOUN + 1] = {};
+	for (const auto &entry : artifact_rows)
+		if (entry.second.locType == ARTIFACT_ON_PC &&
+		    entry.second.location == GET_PID(ch) && entry.second.type >= ARTIFACT_MAJOR &&
+		    entry.second.type <= ARTIFACT_IOUN && ++held[(int)entry.second.type] > 1)
+			return true;
+	return false;
 }
 
 bool artifact_reconcile_player_owner(P_obj object)
@@ -3621,7 +3798,6 @@ void event_artifact_wars_sql(P_char /*ch*/, P_char /*vict*/, P_obj /*obj*/, void
 	struct artifact_wars_owner
 	{
 		int pid;
-		int total;
 		int major;
 		int unique;
 		int ioun;
@@ -3660,14 +3836,15 @@ void event_artifact_wars_sql(P_char /*ch*/, P_char /*vict*/, P_obj /*obj*/, void
 			continue;
 		artifact_wars_owner &owner = counted[row.location];
 		owner.pid = row.location;
-		++owner.total;
 		owner.major += row.type == ARTIFACT_MAJOR;
 		owner.unique += row.type == ARTIFACT_UNIQUE;
 		owner.ioun += row.type == ARTIFACT_IOUN;
 	}
+	// A player still inside their loot grace is left alone: its end drops the extra.
 	for (const auto &entry : counted)
 		if (owner_count < ARTIFACT_WARS_OWNER_BATCH_SIZE &&
-		    (entry.second.major > 1 || entry.second.unique > 1 || entry.second.ioun > 1))
+		    (entry.second.major > 1 || entry.second.unique > 1 || entry.second.ioun > 1) &&
+		    !artifact_loot_grace_running(entry.first))
 			owners[owner_count++] = entry.second;
 
 	if (owner_count == 0)
@@ -3708,59 +3885,9 @@ void event_artifact_wars_sql(P_char /*ch*/, P_char /*vict*/, P_obj /*obj*/, void
 		P_char owner = find_player_by_pid(entry.pid);
 		if (owner && owner->in_room != NOWHERE)
 		{
-			P_obj carried_obj, next_obj;
-			bool first = TRUE;
-
-			for (int pos = 0; pos < MAX_WEAR; pos++)
-			{
-				if (owner->equipment[pos] && IS_ARTIFACT(owner->equipment[pos]))
-				{
-					carried_obj = unequip_char(owner, pos, FALSE);
-					if (first)
-					{
-						act("&+RThe gods frown upon your greed! $p burns your flesh and falls to the ground!&n",
-						    FALSE, owner, carried_obj, 0, TO_CHAR);
-						act("&+R$n screams as $p burns $m and falls to the ground!&n",
-						    FALSE, owner, carried_obj, 0, TO_ROOM);
-						first = FALSE;
-					}
-					else
-					{
-						act("&+R$p falls to the ground!&n", FALSE, owner,
-						    carried_obj, 0, TO_CHAR);
-						act("&+R$p falls to the ground!&n", FALSE, owner,
-						    carried_obj, 0, TO_ROOM);
-					}
-					obj_to_room(carried_obj, owner->in_room);
-				}
-			}
-
-			for (carried_obj = owner->carrying; carried_obj; carried_obj = next_obj)
-			{
-				next_obj = carried_obj->next_content;
-				if (!IS_ARTIFACT(carried_obj))
-					continue;
-				if (first)
-				{
-					act("&+RThe gods frown upon your greed! $p burns your flesh and falls to the ground!&n",
-					    FALSE, owner, carried_obj, 0, TO_CHAR);
-					act("&+R$n screams as $p burns $m and falls to the ground!&n",
-					    FALSE, owner, carried_obj, 0, TO_ROOM);
-					first = FALSE;
-				}
-				else
-				{
-					act("&+R$p falls to the ground!&n", FALSE, owner,
-					    carried_obj, 0, TO_CHAR);
-					act("&+R$p falls to the ground!&n", FALSE, owner,
-					    carried_obj, 0, TO_ROOM);
-				}
-				obj_from_char(carried_obj);
-				obj_to_room(carried_obj, owner->in_room);
-			}
-
-			debug("artifact_wars: %s had %d artifacts forcibly dropped (punish_level=%d)",
-			      GET_NAME(owner), entry.total, punish_level);
+			artifact_drop_extras(owner);
+			debug("artifact_wars: %s had extra artifacts dropped (punish_level=%d)",
+			      GET_NAME(owner), punish_level);
 		}
 	}
 

@@ -312,39 +312,65 @@ def run(binary):
                 assert classic.index("raceless wisp") < classic.index(NECRO) and "(Human)" in classic, classic
                 passed("I11: toggle groupsort lists players before pets for its owner only; classic stays the default")
 
-                for vnum, keyword in ((900, "blue"), (901, "red")):
+                for vnum, keyword in ((900, "blue"), (901, "red"), (902, "green")):
                     assert "You have created" in do(staff, f"load obj {vnum}")
                     do(staff, "drop " + keyword)
                 deadline = time.monotonic() + 30
-                while sql("SELECT COUNT(*) FROM artifacts WHERE vnum IN (900,901)") != "2":
-                    assert time.monotonic() < deadline, "the two artifacts were never recorded"
+                while sql("SELECT COUNT(*) FROM artifacts WHERE vnum IN (900,901,902)") != "3":
+                    assert time.monotonic() < deadline, "the three artifacts were never recorded"
                     time.sleep(.2)
+                grace = "You carry two artifacts of the same type. Give one away or drop one within"
+                third = "ioun stone stays where it is: you would carry more than two artifacts of one type."
+                no_wear = "while you carry another artifact of its type."
                 # The starter kit fills the pack; make room before lifting the stones.
                 do(necro, "wear all")
                 do(necro, "drop all")
-                assert "You get" in do(necro, "get blue")
+                text = do(necro, "get blue")
+                assert "You get" in text and grace not in text, text
+                # A second of one type can be looted, which starts the loot grace.
                 text = do(necro, "get red")
-                assert "ioun stone stays where it is: you already hold an artifact of that type." in text, text
-                assert "A bright red stone floats here." in do(necro, "look")
-                assert "red ioun stone" not in do(necro, "inventory")
-                # A bulk pickup refuses the stone by name and still takes the rest.
-                text = do(necro, "get all")
-                assert "ioun stone stays where it is: you already hold an artifact of that type." in text, text
-                assert "A bright red stone floats here." in do(necro, "look")
-                do(staff, "get red")
-                text = do(staff, "give red " + NECRO)
+                assert "You get" in text and grace in text, text
+                # A third is refused, alone and in a bulk pickup.
+                assert third in do(necro, "get green")
+                assert third in do(necro, "get all")
+                assert "A bright blue stone floats here." in do(necro, "look")
+                # Carrying two, the player can wear neither and cannot rest.
+                assert no_wear in do(necro, "wear red")
+                assert no_wear in do(necro, "wear blue")
+                assert "You cannot rest while you carry two artifacts of one type." in do(necro, "camp")
+                # A give still needs the receiver to hold none of that type.
+                do(staff, "get green")
+                text = do(staff, "give green " + NECRO)
                 assert "already holds an artifact of that type and cannot take" in text, text
-                # Their own stone still moves freely, and parting with it lifts the refusal.
-                assert "stays where it is" not in do(necro, "wear blue")
+                # Parting with one lifts the limits.
+                do(necro, "drop red")
+                assert no_wear not in do(necro, "wear blue")
                 do(necro, "remove blue")
                 do(necro, "drop blue")
-                assert "Ok." in do(staff, "give red " + NECRO)
-                # With both on the ground and none held, one bulk pickup takes only one.
-                do(necro, "drop red")
+                assert "Ok." in do(staff, "give green " + NECRO)
+                # Holding one, a bulk pickup takes one more under the grace and refuses the third.
                 text = do(necro, "get all")
-                assert text.count("stays where it is: you already hold an artifact of that type.") == 1, text
+                assert grace in text and text.count(third) == 1, text
+                assert do(necro, "inventory").count("ioun stone") == 2
+                do(necro, "drop ioun")  # Leave the necromancer within the limit.
                 assert do(necro, "inventory").count("ioun stone") == 1
-                passed("I8: a second artifact of one type is refused on pickup, bulk pickup and give")
+                # Artifacts inside a container count: a backpack holding two stones would make
+                # three, so it is refused, and it cannot be given either.
+                assert "You have created" in do(staff, "load obj 48")
+                for _ in range(2):
+                    do(staff, "get ioun")
+                    do(staff, "put ioun backpack")
+                do(staff, "drop backpack")
+                assert "stays where it is: you would carry more than two artifacts of one type." in do(necro, "get backpack")
+                do(staff, "get backpack")
+                assert "already holds an artifact of that type and cannot take" in do(staff, "give backpack " + NECRO)
+                # With one stone inside, the backpack is the second of the type: taken under the grace.
+                do(staff, "get ioun backpack")
+                do(staff, "drop backpack")
+                text = do(necro, "get backpack")
+                assert "You get" in text and grace in text, text
+                do(necro, "drop backpack")
+                passed("I8: a second artifact of one type can be looted under the loot grace; a third, wearing either and a give are refused, counting artifacts inside a container")
 
                 do(staff, f"cast 'concealment' {BARD}")
                 until(staff, "stat char " + BARD, "'concealment'")
