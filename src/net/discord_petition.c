@@ -85,7 +85,9 @@ bool plain_text(const char *source, std::size_t capacity, std::string &result)
 }
 } // namespace
 
-void discord_petition_export(char_data *sender, const char *message, char_data *target)
+namespace
+{
+void export_event(const char *channel, char_data *sender, const char *message, char_data *target)
 {
 	const auto status = discord_bridge_get_status();
 	if (!status.listening)
@@ -105,5 +107,16 @@ void discord_petition_export(char_data *sender, const char *message, char_data *
 	// native output boundary without changing the command's input or recipients.
 	delete_doubledollar(text.data());
 	text.resize(std::strlen(text.c_str()));
-	discord_bridge_publish(name.c_str(), text.c_str());
+	discord_bridge_publish(name.c_str(), text.c_str(), channel);
+}
+} // namespace
+
+void discord_petition_export(char_data *sender, const char *message, char_data *target)
+{
+	export_event("petition", sender, message, target);
+}
+
+void discord_idea_export(char_data *sender, const char *message)
+{
+	export_event("idea", sender, message, nullptr);
 }

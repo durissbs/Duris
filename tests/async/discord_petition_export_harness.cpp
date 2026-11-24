@@ -184,13 +184,14 @@ static std::string received(int peer)
 	return wire;
 }
 
-static void event(int peer, const std::string &name, const std::string &message)
+static void event(int peer, const std::string &name, const std::string &message,
+		  const std::string &channel = "petition")
 {
 	std::string wire = received(peer);
 	assert(std::count(wire.begin(), wire.end(), '\n') == 1);
 	cJSON *record = cJSON_ParseWithOpts(wire.c_str(), nullptr, true);
 	assert(record);
-	assert(std::string(cJSON_GetObjectItem(record, "channel")->valuestring) == "petition");
+	assert(std::string(cJSON_GetObjectItem(record, "channel")->valuestring) == channel);
 	assert(std::string(cJSON_GetObjectItem(record, "name")->valuestring) == name);
 	assert(std::string(cJSON_GetObjectItem(record, "message")->valuestring) == message);
 	assert(cJSON_GetObjectItem(record, "emoted")->valueint == 0);
@@ -430,6 +431,17 @@ static void text_and_bounds(int peer)
 	assert(discord_bridge_get_status().dropped_events == dropped + 1);
 }
 
+static void ideas(int peer)
+{
+	player sender("&+rZoë&n");
+	discord_idea_export(&sender.ch, "&+gMore quests&n in $$Torin");
+	event(peer, "Zoë", "More quests in $Torin", "idea");
+	const auto dropped = discord_bridge_get_status().dropped_events;
+	discord_idea_export(&sender.ch, std::string(MAX_STRING_LENGTH, 'x').c_str());
+	assert(received(peer).empty());
+	assert(discord_bridge_get_status().dropped_events == dropped + 1);
+}
+
 static void unavailable(int peer)
 {
 	player sender("Player"), staff("Staff", 64);
@@ -565,6 +577,7 @@ int main(int argc, char **argv)
 	concealment(peer);
 	input_dollars(peer);
 	text_and_bounds(peer);
+	ideas(peer);
 	unavailable(peer);
 	puts("Petition/ptell real-command export harness passed");
 }

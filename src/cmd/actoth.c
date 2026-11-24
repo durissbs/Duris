@@ -18,6 +18,7 @@
 #include "cmd/color_command.h"
 #include "core/structs.h"
 #include "net/comm.h"
+#include "net/discord_petition.h"
 #include "world/db.h"
 #include "world/events.h"
 #include "cmd/interp.h"
@@ -4652,6 +4653,7 @@ void do_idea(P_char ch, char *argument, int /*cmd*/)
 	else
 	{
 		send_to_char("The idea has been logged - thanks for your input.\r\n", ch);
+		discord_idea_export(ch, argument);
 	}
 }
 
