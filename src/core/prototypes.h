@@ -753,8 +753,18 @@ void do_artifact(P_char, char *, int);
 void artifact_feed_to_min(P_obj arti, int min_minutes);
 void feed_artifact(P_char ch, P_obj obj, int feed_seconds, int bypass);
 void artifact_switch_check(P_char ch, P_obj obj);
-bool artifact_second_of_type(P_char ch, P_obj arti);
-bool artifact_second_of_type(P_char ch, P_obj arti, P_obj also_taking);
+int artifact_others_of_type(P_char ch, P_obj arti);
+// Artifacts counted by type (major 1, unique 2, ioun 3) for the one-of-each limit.
+struct artifact_counts
+{
+	int by_type[4] = {};
+};
+bool holds_artifact(P_obj obj);
+void artifact_count_incoming(P_char ch, P_obj obj, artifact_counts &counts);
+bool artifact_over_limit(P_char ch, const artifact_counts &counts, int limit);
+bool artifact_holds_extra(P_char ch);
+bool refuse_looter_rest(P_char ch);
+void event_artifact_loot_grace(P_char, P_char, P_obj, void *);
 void event_check_arti_poof(P_char ch, P_char vict, P_obj obj, void *arg);
 void event_artifact_wars(P_char, P_char, P_obj, void *);
 void dropped_arti_hunt();
@@ -920,7 +930,7 @@ void weather_setup(int mini_mode);
 int get_mob_table(int);
 int get_obj_table(int);
 void room_event(P_char, P_char, P_obj, void *);
-int InsertIntoFile(const char *filename, const char *text);
+bool AppendToFile(const char *filename, const char *text);
 
 /* debug.c */
 

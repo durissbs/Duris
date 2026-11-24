@@ -5335,6 +5335,7 @@ void create_tags()
 
 	TAG_CREATE("total epics gained", TAG_EPICS_GAINED);
 	TAG_CREATE("pending epic task", TAG_EPIC_TASK_PENDING);
+	TAG_CREATE("corpse looter", TAG_LOOTER);
 
 	TAG_CREATE("regaining composure", TAG_BARDSONG_FAILURE);
 

@@ -135,6 +135,9 @@ def run(binary):
                 actor.close(); clients.remove(actor)
                 actor=journey.reconnect_character(port); clients.append(actor)
                 actor.send('look'); actor.expect('The corpse of a Human is lying here.')
+                # A newbie who comes back carrying nothing gets the starter kit again,
+                # which fills the pack; set it down before hauling the corpse.
+                actor.send('drop all'); actor.expect('You drop',timeout=20)
                 pc_items=plain_haul('Taverek','the corpse of Taverek')
                 assert 'a banana' in pc_items and 'Some contents were not acquired.' not in pc_items,pc_items
                 print('player corpse haul: '+pc_items,flush=True)

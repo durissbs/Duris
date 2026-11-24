@@ -18,6 +18,7 @@
 #include "cmd/color_command.h"
 #include "core/structs.h"
 #include "net/comm.h"
+#include "net/discord_petition.h"
 #include "world/db.h"
 #include "world/events.h"
 #include "cmd/interp.h"
@@ -241,6 +242,17 @@ void do_target(P_char ch, char *arg, int cmd)
 	return;
 }
 
+// A player who just looted the other side's corpse may not camp or rent for a while.
+bool refuse_looter_rest(P_char ch)
+{
+	if (!IS_AFFECTED4(ch, AFF4_LOOTER) && !affected_by_spell(ch, TAG_LOOTER))
+		return false;
+	send_to_char(
+		"Aw, play fair. Give your last victim a few minutes to even the score before you whimper off, hiding like a dog.\r\n",
+		ch);
+	return true;
+}
+
 void do_camp(P_char ch, char *arg, int /*cmd*/)
 {
 	struct affected_type af;
@@ -318,14 +330,15 @@ void do_camp(P_char ch, char *arg, int /*cmd*/)
 		ch = NULL;
 		return;
 	}
-	/* no loot/camp */
-	if (IS_AFFECTED4(ch, AFF4_LOOTER))
+	if (artifact_holds_extra(ch))
 	{
 		send_to_char(
-			"Aw, play fair. Give your last victim a few minutes to even the score before you whimper off, hiding like a dog.\r\n",
+			"You cannot rest while you carry two artifacts of one type. Give one away or drop one first.\r\n",
 			ch);
 		return;
 	}
+	if (refuse_looter_rest(ch))
+		return;
 	if (IS_AFFECTED2(ch, AFF2_FLURRY))
 	{
 		send_to_char("You are too deep in battle madness!\r\n", ch);
@@ -4136,7 +4149,8 @@ void do_steal(P_char ch, char *argument, int /*cmd*/)
 		}
 	}
 
-	if (obj && IS_ARTIFACT(obj) && !IS_TRUSTED(ch))
+	// Containers too: an artifact inside one is just as bound.
+	if (obj && holds_artifact(obj) && !IS_TRUSTED(ch))
 	{
 		send_to_char(
 			"That item appears to be &+Mmagically &nbound to them, better try to steal something else.\r\n",
@@ -4618,7 +4632,6 @@ void do_expkkk(P_char ch, char * /*argument*/, int /*cmd*/)
 void do_idea(P_char ch, char *argument, int /*cmd*/)
 {
 	char buf[MAX_STRING_LENGTH];
-	int result = 0;
 
 	if (IS_NPC(ch))
 	{
@@ -4638,27 +4651,20 @@ void do_idea(P_char ch, char *argument, int /*cmd*/)
 
 	snprintf(buf, MAX_STRING_LENGTH, "**%s: %s\n", GET_NAME(ch), argument);
 
-	result = InsertIntoFile(IDEA_FILE, buf);
-	if (result == 1)
+	if (!AppendToFile(IDEA_FILE, buf))
 	{
-		send_to_char("Unable to allocate necessary memory.\r\n", ch);
+		send_to_char("Could not save the idea file.\r\n", ch);
 		perror("do_idea");
+		return;
 	}
-	else if (result == 2)
-	{
-		send_to_char("Could not open the idea file.\r\n", ch);
-		perror("do_idea");
-	}
-	else
-	{
-		send_to_char("The idea has been logged - thanks for your input.\r\n", ch);
-	}
+
+	send_to_char("The idea has been logged - thanks for your input.\r\n", ch);
+	discord_idea_export(ch, argument);
 }
 
 void do_typo(P_char ch, char *argument, int /*cmd*/)
 {
 	char buf[MAX_STRING_LENGTH];
-	int result = 0;
 
 	if (IS_NPC(ch))
 	{
@@ -4679,28 +4685,20 @@ void do_typo(P_char ch, char *argument, int /*cmd*/)
 	snprintf(buf, MAX_STRING_LENGTH, "**%s[%d]: %s\n", GET_NAME(ch), world[ch->in_room].number,
 		 argument);
 
-	result = InsertIntoFile(TYPO_FILE, buf);
-	if (result == 1)
+	if (!AppendToFile(TYPO_FILE, buf))
 	{
-		send_to_char("Unable to allocate necessary memory.\r\n", ch);
+		send_to_char("Could not save the typo file.\r\n", ch);
 		perror("do_typo");
+		return;
 	}
-	else if (result == 2)
-	{
-		send_to_char("Could not open the idea file.\r\n", ch);
-		perror("do_typo");
-	}
-	else
-	{
-		send_to_char("The typo has been logged - thanks for your input.\r\n", ch);
-	}
+
+	send_to_char("The typo has been logged - thanks for your input.\r\n", ch);
 }
 
 void do_bug(P_char ch, char *argument, int /*cmd*/)
 {
 	char buf[MAX_STRING_LENGTH];
 	long t = 0;
-	int result = 0;
 
 	if (IS_NPC(ch))
 	{
@@ -4723,24 +4721,17 @@ void do_bug(P_char ch, char *argument, int /*cmd*/)
 	snprintf(buf, MAX_STRING_LENGTH, "%s **%s[%d]: %s\n", ctime(&t), GET_NAME(ch),
 		 world[ch->in_room].number, argument);
 
-	result = InsertIntoFile(BUG_FILE, buf);
-	if (result == 1)
+	if (!AppendToFile(BUG_FILE, buf))
 	{
-		send_to_char("Unable to allocate necessary memory.\r\n", ch);
+		send_to_char("Could not save the bug file.\r\n", ch);
 		perror("do_bug");
+		return;
 	}
-	else if (result == 2)
-	{
-		send_to_char("Could not open the bug file.\r\n", ch);
-		perror("do_bug");
-	}
-	else
-	{
-		send_to_char("The bug has been logged - thanks for your input.\r\n", ch);
-		send_to_char(
-			"If you specified the symptoms of the bug and steps that led to it, it will be reviewed shortly.\r\n",
-			ch);
-	}
+
+	send_to_char("The bug has been logged - thanks for your input.\r\n", ch);
+	send_to_char(
+		"If you specified the symptoms of the bug and steps that led to it, it will be reviewed shortly.\r\n",
+		ch);
 }
 
 void do_cheat(P_char ch, char *argument, int /*cmd*/)

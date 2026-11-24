@@ -3839,6 +3839,15 @@ int camp(P_char ch)
 				affect_from_char(ch, TAG_CAMP);
 				send_to_char("So much for that camping effort.\n", ch);
 			}
+			else if (artifact_holds_extra(ch))
+			{
+				affect_from_char(ch, TAG_CAMP);
+				send_to_char(
+					"You cannot rest while you carry two artifacts of one type. Give one away or drop one first.\r\n",
+					ch);
+			}
+			else if (refuse_looter_rest(ch))
+				affect_from_char(ch, TAG_CAMP);
 			else
 			{
 				/*

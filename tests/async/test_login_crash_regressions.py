@@ -118,14 +118,13 @@ check("make_prompt still sizes its buffers from MAX_INPUT_LENGTH",
       "char promptbuf[MAX_INPUT_LENGTH];" in prompt and
       "char promptbuf2[MAX_INPUT_LENGTH], *pPrompt;" in prompt)
 
-# An empty bug/idea/typo report file is valid. Avoid invoking the fatal
-# required-read wrapper with a zero element size.
-insert = db[db.index("int InsertIntoFile("):]
-insert = insert[:insert.index("\n}\n")]
-read = insert.index("REQUIRED_FREAD(buffer, sizeToRead, 1, fin);")
-check("empty report files skip the required read",
-      "if (sizeToRead)" in insert[:read] and
-      insert.rindex("if (sizeToRead)", 0, read) < read)
+# Report files are append-only: an empty file needs no read at all, and no
+# write may truncate entries that are already there.
+append = db[db.index("bool AppendToFile("):]
+append = append[:append.index("\n}\n")]
+check("report files append without reading or truncating",
+      "O_APPEND" in append and "O_TRUNC" not in append and "fread" not in append
+      and "REQUIRED_FREAD" not in append)
 
 # The three fixed files must stay clean under the repo-wide scanner.
 import subprocess, sys

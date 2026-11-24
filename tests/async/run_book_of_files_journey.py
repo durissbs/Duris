@@ -90,7 +90,16 @@ def run(server):
                     response = command(client, "read " + topic)
                     assert f"Entry for {topic}" in response, (topic, response)
                     assert "Could not open file." not in response, (topic, response)
+                # Ideas are appended after earlier entries, never written over them.
+                for text in ("first appended idea", "second appended idea"):
+                    assert "has been logged" in command(client, "idea " + text)
+                ideas = (runtime / TOPICS["ideas"]).read_text()
+                assert ideas == ("Entry for ideas\n" f"**{STAFF}: first appended idea\n"
+                                 f"**{STAFF}: second appended idea\n"), ideas
+                response = command(client, "read ideas")
+                assert response.index("first appended idea") < response.index("second appended idea"), response
                 print("PASS: book of files describes live topics; missing and present files read cleanly")
+                print("PASS: idea appends after earlier entries and the book shows them")
             finally:
                 stop()
 

@@ -10,6 +10,7 @@
 #include "abilities/abilities.h"
 #include <algorithm>
 #include <ctype.h>
+#include <deque>
 #include <errno.h>
 #include <list>
 #include <stdio.h>
@@ -6766,12 +6767,41 @@ int wall_generic(P_obj obj, P_char ch, int cmd, char *arg)
 	return TRUE;
 }
 
+// Reads the last max_bytes of a file, starting at a line boundary. On failure
+// errno is ENOENT only when the file does not exist.
+static bool read_file_tail(const char *filename, size_t max_bytes, std::string &tail)
+{
+	FILE *f = fopen(filename, "r");
+	if (!f)
+		return false;
+	bool ok = fseek(f, 0, SEEK_END) == 0;
+	const long size = ok ? ftell(f) : -1;
+	const long start = size > (long)max_bytes ? size - (long)max_bytes : 0;
+	ok = size >= 0 && fseek(f, start, SEEK_SET) == 0;
+	char buf[4096];
+	size_t n;
+	while (ok && (n = fread(buf, 1, sizeof(buf), f)) > 0)
+		tail.append(buf, n);
+	ok = ok && !ferror(f);
+	fclose(f);
+	if (!ok)
+	{
+		errno = EIO;
+		return false;
+	}
+	if (start > 0)
+	{
+		const size_t newline = tail.find('\n');
+		tail.erase(0, newline == std::string::npos ? tail.size() : newline + 1);
+	}
+	return true;
+}
+
 int changelog(P_obj obj, P_char ch, int cmd, char *args)
 {
-	FILE *f = NULL;
-	char o_buf[MAX_STRING_LENGTH], buf[MAX_STRING_LENGTH];
+	char o_buf[MAX_STRING_LENGTH];
 	char arg[MAX_INPUT_LENGTH], arg2[MAX_INPUT_LENGTH];
-	char *ret;
+	const char *path;
 
 	if (cmd != CMD_READ || GET_LEVEL(ch) < MINLVLIMMORTAL || !obj)
 	{
@@ -6786,39 +6816,24 @@ int changelog(P_obj obj, P_char ch, int cmd, char *args)
 		return TRUE;
 	}
 
-	o_buf[0] = '\0';
-
 	half_chop(args, arg, arg2);
 	if (!str_cmp(arg, "bugs"))
-	{
-		f = fopen(BUG_FILE, "r");
-	}
+		path = BUG_FILE;
 	else if (!str_cmp(arg, "typos"))
-	{
-		f = fopen(TYPO_FILE, "r");
-	}
+		path = TYPO_FILE;
 	else if (!str_cmp(arg, "ideas"))
-	{
-		f = fopen(IDEA_FILE, "r");
-	}
+		path = IDEA_FILE;
 	else if (!str_cmp(arg, "cheats"))
-	{
-		f = fopen(BUG_CHEAT, "r");
-	}
+		path = BUG_CHEAT;
 	else if (!str_cmp(arg, "cheaters"))
-	{
-		f = fopen(CHEATERS_FILE, "r");
-	}
+		path = CHEATERS_FILE;
 	else if (!str_cmp(arg, "donations"))
-	{
-		f = fopen(LOG_DONATION, "r");
-	}
+		path = LOG_DONATION;
 	else
-	{
 		return FALSE;
-	}
 
-	if (!f)
+	std::string tail;
+	if (!read_file_tail(path, MAX_STRING_LENGTH, tail))
 	{
 		if (errno == ENOENT)
 			send_to_char("Nothing has been recorded there yet.\n", ch);
@@ -6827,33 +6842,33 @@ int changelog(P_obj obj, P_char ch, int cmd, char *args)
 		return TRUE;
 	}
 
-	do
+	// New entries are appended, so keep the newest lines that fit on the page.
+	std::deque<std::string> lines;
+	size_t total = 0;
+	for (size_t pos = 0; pos < tail.size();)
 	{
-		ret = fgets(buf, MAX_STRING_LENGTH, f);
-		if (ret)
+		const size_t newline = tail.find('\n', pos);
+		const size_t end = newline == std::string::npos ? tail.size() : newline + 1;
+		lines.push_back((isalpha((unsigned char)tail[pos]) ? "&+B" : "&+c") +
+				tail.substr(pos, end - pos));
+		total += lines.back().size();
+		while (total >= MAX_STRING_LENGTH - 10)
 		{
-			if ((strlen(o_buf) + strlen(buf)) >= (MAX_STRING_LENGTH - 10))
-			{
-				ret = NULL;
-			}
-			else
-			{
-				if (isalpha(buf[0]))
-					strcat(o_buf, "&+B");
-				else
-					strcat(o_buf, "&+c");
-				strcat(o_buf, buf);
-			}
+			total -= lines.front().size();
+			lines.pop_front();
 		}
-	} while (ret);
-	fclose(f);
+		pos = end;
+	}
 
-	if (!o_buf[0])
+	if (lines.empty())
 	{
 		send_to_char("Nothing has been recorded there yet.\n", ch);
 		return TRUE;
 	}
 
+	o_buf[0] = '\0';
+	for (const std::string &line : lines)
+		strcat(o_buf, line.c_str());
 	strcat(o_buf, "\n");
 	page_string(ch->desc, o_buf, 1);
 	return TRUE;

@@ -1736,14 +1736,19 @@ imbalance after Discord playerbase consultation. See &+Yhelp rules&n.
 
 Unique
 
-You may hold one major artifact, one unique and one ioun at a time. If you
-hold two or more of any one type, the periodic artifact check makes all
-artifacts you wear or carry fall to the ground, including other types.
-Inventory counts as well as equipment, and even a brief overlap can trigger
-the check. The forced drop causes no damage or loss of remaining feeding time.
-You cannot pick up or be given a second artifact of a type you already hold.
-If one reaches you another way, you are warned at once, so you can part with
-it before the check.
+You may hold one major artifact, one unique and one ioun at a time.
+Inventory and containers count as well as equipment.
+
+You may pick up a second artifact of a type you already hold, from a corpse
+or the ground, but not a third. You then have 10 minutes to give one to
+someone who holds none of that type, or to drop one. Until you do, you
+cannot wear either of them, rent or camp, and picking the extra up again
+does not restart the time. When the time runs out, only the extra falls to
+the ground: the one you wear, or else the one you held first, stays with
+you. The drop causes no damage or loss of remaining feeding time.
+
+You cannot be given an artifact of a type you already hold. A pet cannot
+pick up, be given or wear an artifact.
 
 #0
 
@@ -4180,6 +4185,8 @@ period of time before you can exit the game. If you leave the room in which
 you are trying to set up camp or if you fight, camping will automatically
 cancel. Once you fully camp, you will be sent to the main menu, just as
 when you rent. Items flagged no rent fall to the floor when you finish.
+After taking anything from the corpse of a player from the other side, you
+must wait 5 minutes before you can camp or rent.
 Should you choose to 'camp abort', 'camp stop' or 'camp off', you will stop attempting to set up camp.
 Warning: If you go link-dead, camping will stop
 (linkdead rent does *not* reset your homeroom).
@@ -9913,14 +9920,19 @@ On Duris, artifacts, uniques, and iouns are in need of "feeding", which can be d
 Artifacts come with an initial timer which can be supplemented by epic zoning or fragging enemies.  If you fail to feed, your artifact will be removed and placed back into the game where it loads when the timer counts down.
 See also:  artifact ,unique ,ioun
 
-You may hold one major artifact, one unique and one ioun at a time. If you
-hold two or more of any one type, the periodic artifact check makes all
-artifacts you wear or carry fall to the ground, including other types.
-Inventory counts as well as equipment, and even a brief overlap can trigger
-the check. The forced drop causes no damage or loss of remaining feeding time.
-You cannot pick up or be given a second artifact of a type you already hold.
-If one reaches you another way, you are warned at once, so you can part with
-it before the check.
+You may hold one major artifact, one unique and one ioun at a time.
+Inventory and containers count as well as equipment.
+
+You may pick up a second artifact of a type you already hold, from a corpse
+or the ground, but not a third. You then have 10 minutes to give one to
+someone who holds none of that type, or to drop one. Until you do, you
+cannot wear either of them, rent or camp, and picking the extra up again
+does not restart the time. When the time runs out, only the extra falls to
+the ground: the one you wear, or else the one you held first, stays with
+you. The drop causes no damage or loss of remaining feeding time.
+
+You cannot be given an artifact of a type you already hold. A pet cannot
+pick up, be given or wear an artifact.
 
 #0
 
@@ -14873,6 +14885,8 @@ of people. At an inn you can have multiple characters logged in for
 the purpose of exchanging equipment only.
 Warning: Players who have been recently attacked by another player may
 have to wait a few minutes before being allowed to rent at an inn.
+After taking anything from the corpse of a player from the other side, you
+must wait 5 minutes before you can camp or rent.
 
 ==See also==
 
@@ -15104,14 +15118,19 @@ is alike, and they all bestow different powers.
 For a list of iouns, type "arti ioun".
 	See also:artifact ,unique ,feeding
 
-You may hold one major artifact, one unique and one ioun at a time. If you
-hold two or more of any one type, the periodic artifact check makes all
-artifacts you wear or carry fall to the ground, including other types.
-Inventory counts as well as equipment, and even a brief overlap can trigger
-the check. The forced drop causes no damage or loss of remaining feeding time.
-You cannot pick up or be given a second artifact of a type you already hold.
-If one reaches you another way, you are warned at once, so you can part with
-it before the check.
+You may hold one major artifact, one unique and one ioun at a time.
+Inventory and containers count as well as equipment.
+
+You may pick up a second artifact of a type you already hold, from a corpse
+or the ground, but not a third. You then have 10 minutes to give one to
+someone who holds none of that type, or to drop one. Until you do, you
+cannot wear either of them, rent or camp, and picking the extra up again
+does not restart the time. When the time runs out, only the extra falls to
+the ground: the one you wear, or else the one you held first, stays with
+you. The drop causes no damage or loss of remaining feeding time.
+
+You cannot be given an artifact of a type you already hold. A pet cannot
+pick up, be given or wear an artifact.
 
 #0
 
@@ -22142,6 +22161,8 @@ time you enter the game, you'll start out at the inn where you rented.
 Items flagged no rent can't be stored and fall to the floor when you leave.
 Warning: Players who have been recently attacked by another player may
 have to wait a few minutes before being allowed to rent at an inn.
+After taking anything from the corpse of a player from the other side, you
+must wait 5 minutes before you can camp or rent.
 
 ==See also==
 

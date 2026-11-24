@@ -28,9 +28,11 @@
 #include "core/utils.h"
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include "account/account.h"
 #include "guild/assocs.h"
 #include "guild/artifact_population.h"
@@ -141,7 +143,6 @@ char *greetinga3 = NULL;
 char *greetinga4 = NULL;
 char *greetings = NULL; /* * greeting for ascii viewers * */
 char *disclaimer = NULL; /* * disclaimer message * */
-char *bugfile = NULL;
 char *generaltable = NULL; /* * race/class comparison charts * */
 char *racewars = NULL; /* * good/evil race explanation * */
 char *classtable = NULL; /* * class selection tables * */
@@ -525,8 +526,6 @@ void boot_db(int mini_mode)
 	wizlista = file_to_string(WIZLISTA_FILE);
 	logit(LOG_STATUS, "Reading disclaimer.");
 	disclaimer = file_to_string(DISCLAIMER_FILE);
-	logit(LOG_STATUS, "Reading bug file.");
-	bugfile = file_to_string(BUG_FILE);
 	logit(LOG_STATUS, "Reading race/class comparison table.");
 	generaltable = file_to_string(GENERALTABLE_FILE);
 	logit(LOG_STATUS, "Reading Race table.");
@@ -5121,68 +5120,17 @@ void worldcheck(P_char ch)
 	}
 }
 
-int InsertIntoFile(const char *filename, const char *text)
+// Adds one entry to a report file with a single append-only write. Earlier
+// entries are never rewritten, truncated or capped, so a failed write, a crash
+// or a reader running at the same time cannot lose them.
+bool AppendToFile(const char *filename, const char *text)
 {
-	FILE *fin = 0;
-	unsigned char *buffer = 0;
-	long sizeOfFile = 0;
-	unsigned int sizeToRead = 0;
-	FILE *fout = 0;
-
-	// open the existing bug file for read
-	fin = fopen(filename, "rb");
-	if (fin != NULL)
-	{
-		// create the buffer to hold the file's current contents
-		CREATE(buffer, unsigned char, MAX_STRING_LENGTH, MEM_TAG_BUFFER);
-		if (buffer == NULL)
-		{
-			fclose(fin);
-			return 1;
-		}
-
-		// determine the size of the file
-		fseek(fin, 0, SEEK_END);
-		sizeOfFile = ftell(fin);
-		fseek(fin, 0, SEEK_SET);
-
-		// determine if the file is larger than the max size
-		sizeToRead = 0;
-		if (sizeOfFile <= MAX_STRING_LENGTH)
-			sizeToRead = (int)sizeOfFile;
-		else
-			sizeToRead = MAX_STRING_LENGTH;
-
-		// fread reports zero elements for a zero-sized element, which the required-read
-		// wrapper treats as fatal.  An empty report file has nothing to preserve.
-		if (sizeToRead)
-			REQUIRED_FREAD(buffer, sizeToRead, 1, fin);
-
-		// close the input file
-		fclose(fin);
-	}
-
-	// open the file again to be rewritten
-	fout = fopen(filename, "wb");
-	if (fout == NULL)
-	{
-		FREE(buffer);
-		return 2;
-	}
-
-	// write the formatted text out to the file
-	fputs(text, fout);
-
-	// write out the existing file's contents
-	if (buffer != NULL)
-	{
-		fwrite(buffer, sizeToRead, 1, fout);
-		FREE(buffer);
-	}
-
-	fclose(fout);
-
-	return 0;
+	const int fd = open(filename, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0644);
+	if (fd < 0)
+		return false;
+	const size_t size = strlen(text);
+	const bool written = write(fd, text, size) == (ssize_t)size;
+	return close(fd) == 0 && written;
 }
 
 #if 0

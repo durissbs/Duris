@@ -224,6 +224,21 @@ HARNESS_STUB bool artifact_tracks_vnum(int)
 {
 	return false;
 }
+HARNESS_STUB int artifact_others_of_type(P_char, P_obj)
+{
+	return 0;
+}
+// Fixtures that do not track affects take short ones as given.
+HARNESS_STUB void set_short_affected_by(P_char, int, int) {}
+// Fixtures without a scheduler have no events pending.
+HARNESS_STUB P_nevent get_scheduled(P_char, event_func_type)
+{
+	return nullptr;
+}
+HARNESS_STUB P_nevent get_scheduled_excluding_current(P_char, event_func_type)
+{
+	return nullptr;
+}
 HARNESS_STUB bool player_load_items_read_current(const player_load_result &)
 {
 	return true;

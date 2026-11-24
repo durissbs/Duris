@@ -136,8 +136,11 @@ static void obj_to_char(P_obj o,P_char ch) {
 static bool item_movement_transaction_player_busy(P_char) { return false; }
 static bool isname(const char *a,const char *b) { return !strcmp(a,b); }
 static bool account_bound_reward_owner(P_char,P_obj) { return false; }
-static bool artifact_second_of_type(P_char, P_obj) { return false; }
-static bool artifact_second_of_type(P_char, P_obj, P_obj) { return false; }
+struct artifact_counts { int by_type[4] = {}; };
+static void artifact_count_incoming(P_char, P_obj, artifact_counts &) {}
+static bool artifact_over_limit(P_char, const artifact_counts &, int) { return false; }
+#define IS_PC_PET(ch) false
+static bool holds_artifact(P_obj) { return false; }
 static bool item_command_object_is_takeable(P_char,P_obj o) { return o->weight>=0; }
 static bool checkgetput(P_char ch,P_obj obj) {
  if(trap_calls) ++checked_after_trap;

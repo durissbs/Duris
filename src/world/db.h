@@ -139,7 +139,6 @@ extern char *rules;
 extern char *wizlista;
 extern char *greetinga;
 extern char *disclaimer;
-extern char *bugfile;
 extern char *generaltable;
 extern char *racewars;
 extern char *classtable;

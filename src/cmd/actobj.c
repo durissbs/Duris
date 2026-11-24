@@ -522,11 +522,24 @@ void get(P_char ch, P_obj o_obj, P_obj s_obj, int showit)
 		return;
 	}
 
-	if (artifact_second_of_type(ch, o_obj))
+	// A second artifact of a type may be taken, starting the loot grace; a third may not.
+	// Artifacts inside a container count as well.
+	// A player's pet may not carry artifacts: they would escape the owner's limit.
+	if (IS_PC_PET(ch) && holds_artifact(o_obj))
 	{
-		act("$p stays where it is: you already hold an artifact of that type.", FALSE, ch,
-		    o_obj, 0, TO_CHAR);
+		act("$p stays where it is: a pet cannot carry artifacts.", FALSE, ch, o_obj, 0,
+		    TO_CHAR);
 		return;
+	}
+	{
+		artifact_counts incoming;
+		artifact_count_incoming(ch, o_obj, incoming);
+		if (artifact_over_limit(ch, incoming, 2))
+		{
+			act("$p stays where it is: you would carry more than two artifacts of one type.",
+			    FALSE, ch, o_obj, 0, TO_CHAR);
+			return;
+		}
 	}
 
 	if (o_obj->condition <= 0)
@@ -958,6 +971,12 @@ do_get_finalize_container_success(P_char ch, P_char hood, P_obj s_obj, P_obj o_o
 	}
 	else if (!do_get_finalize_container_item(ch, s_obj, o_obj, total, found, post_tag))
 		return;
+
+	// Taking from the other side's corpse makes a looter, who may not rest for a while.
+	if (corpse_flag && IS_PC(ch) && !IS_TRUSTED(ch) &&
+	    s_obj->value[CORPSE_RACEWAR] != RACEWAR_NONE &&
+	    GET_RACEWAR(ch) != s_obj->value[CORPSE_RACEWAR] && !affected_by_spell(ch, TAG_LOOTER))
+		set_short_affected_by(ch, TAG_LOOTER, 5 * 60 * WAIT_SEC);
 
 	if ((item_type == ITEM_CORPSE) && IS_SET(o_obj->value[1], PC_CORPSE))
 	{
@@ -1558,15 +1577,23 @@ static bool select_bulk_get_item(P_char actor, P_obj container, P_obj object, co
 		state.failed = true;
 		return false;
 	}
-	// One artifact of a type per player, counting those already chosen in this batch.
-	bool second_artifact = artifact_second_of_type(actor, object);
+	if (IS_PC_PET(actor) && holds_artifact(object))
+	{
+		reject_bulk_get_object(state, object,
+				       "stays where it is: a pet cannot carry artifacts.");
+		return false;
+	}
+	// At most two artifacts of a type, counting those inside containers and those
+	// already chosen in this batch.
+	artifact_counts incoming;
+	artifact_count_incoming(actor, object, incoming);
 	for (const auto &chosen : state.synchronous_items)
-		second_artifact |= artifact_second_of_type(actor, object, chosen.object);
-	if (second_artifact)
+		artifact_count_incoming(actor, chosen.object, incoming);
+	if (artifact_over_limit(actor, incoming, 2))
 	{
 		reject_bulk_get_object(
 			state, object,
-			"stays where it is: you already hold an artifact of that type.");
+			"stays where it is: you would carry more than two artifacts of one type.");
 		return false;
 	}
 	const bool scrap = object->condition <= 0;
@@ -4361,13 +4388,21 @@ void do_give(P_char ch, char *argument, int cmd)
 		act("$E must consent to you before you can overload $M.", 0, ch, 0, vict, TO_CHAR);
 		return;
 	}
-	if (artifact_second_of_type(vict, obj))
+	if (IS_PC_PET(vict) && holds_artifact(obj))
+	{
+		act("$N cannot carry $p: a pet cannot carry artifacts.", FALSE, ch, obj, vict,
+		    TO_CHAR);
+		return;
+	}
+	artifact_counts incoming;
+	artifact_count_incoming(vict, obj, incoming);
+	if (artifact_over_limit(vict, incoming, 1))
 	{
 		act("$N already holds an artifact of that type and cannot take $p.", FALSE, ch, obj,
 		    vict, TO_CHAR);
 		return;
 	}
-	if (IS_ARTIFACT(obj) && racewar(ch, vict))
+	if (holds_artifact(obj) && racewar(ch, vict))
 	{
 		send_to_char("That would just be unethical now wouldn't it?\r\n", ch);
 		wizlog(56, "%s tried to give %s to %s.", ch->player.name, obj->short_description,
@@ -5977,6 +6012,17 @@ int wear(P_char ch, P_obj obj_object, int keyword, bool showit)
 	}
 	if (!can_equip_soulbound_item(ch, obj_object, showit))
 		return FALSE;
+	// A pet that already holds an artifact (a raised corpse's, say) cannot use it.
+	if (IS_PC_PET(ch) && IS_ARTIFACT(obj_object))
+		return FALSE;
+	// Carrying two artifacts of a type, a player may wear neither until parting with one.
+	if (artifact_others_of_type(ch, obj_object) > 0)
+	{
+		if (showit)
+			act("You cannot wear $p while you carry another artifact of its type.",
+			    FALSE, ch, obj_object, 0, TO_CHAR);
+		return FALSE;
+	}
 	// A raised pet carries what its corpse held, and an NPC's corpse can hold hidden
 	// items: a player's pet equips none of them.
 	if (IS_NOSHOW(obj_object) && IS_PC_PET(ch))

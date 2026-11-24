@@ -69,11 +69,13 @@ services:
       - duris-players:/opt/duris/Players
       - duris-runtime:/var/lib/duris
       - duris-logs:/opt/duris/logs
+      - duris-reports:/opt/duris/lib/reports
       - mariadb-socket:/run/mysqld:ro
 
 volumes:
   duris-logs:
   duris-players:
+  duris-reports:
   duris-runtime:
   mariadb-data:
   mariadb-socket:

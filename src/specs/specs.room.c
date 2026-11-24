@@ -276,6 +276,15 @@ int inn(int room, P_char ch, int cmd, char * /*arg*/)
 			send_to_char("You are too deep in battle madness!\r\n", ch);
 			return FALSE;
 		}
+		if (artifact_holds_extra(ch))
+		{
+			send_to_char(
+				"You cannot rest while you carry two artifacts of one type. Give one away or drop one first.\r\n",
+				ch);
+			return TRUE;
+		}
+		if (refuse_looter_rest(ch))
+			return TRUE;
 		// Allowing Illithids to rent in their own gh.
 		if (IS_NOTWELCOME(ch)) // || GET_RACE(ch) == RACE_ILLITHID )
 		{
@@ -438,6 +447,15 @@ int undead_inn(int /*room*/, P_char ch, int cmd, char * /*arg*/)
 				ch);
 			return TRUE;
 		}
+		if (artifact_holds_extra(ch))
+		{
+			send_to_char(
+				"You cannot rest while you carry two artifacts of one type. Give one away or drop one first.\r\n",
+				ch);
+			return TRUE;
+		}
+		if (refuse_looter_rest(ch))
+			return TRUE;
 		bool had_tupor = IS_AFFECTED4(ch, AFF4_TUPOR);
 		if (had_tupor)
 			REMOVE_BIT(ch->specials.affected_by4, AFF4_TUPOR);
