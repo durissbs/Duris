@@ -4,10 +4,32 @@
 &+R                   PWIPE HAPPENED &+YOCT 28TH 1800 UTC!&n
 &+G                     A NEW SEASON OF BLOOD BEGINS&n
 &+W======================================================================&n
-&+WUpdated: November 24, 2026&n
+&+WUpdated: November 25, 2026&n
 
-Welcome back! Fairer shop prices and a scout's report on the enemy.
+Welcome back! Loot your enemies' artifacts, then move along.
 Newest first; later updates replace older rules. Longer archive on web.
+
+&+R11/25/26&n &+L-&n &+YLoot the fallen, then move along&n
+&+W----------------------------------------------------------------------&n
+
+&+CArtifacts&n
+&+Y-&n You can again pick up an artifact, unique or ioun of a type you
+  already hold, from a corpse or the ground. You then have &+Y10 minutes&n
+  to give one to someone who holds none of that type, or to drop one.
+  Until then you cannot wear either of them, rent or camp.
+&+Y-&n If time runs out, only the extra falls to the ground. The one you
+  wear, or else the one you held first, stays with you. The half-hourly
+  check no longer drops every artifact you carry; it takes only extras.
+&+Y-&n A third of one type is still refused. Artifacts inside a bag now
+  count, whether you pick the bag up, are given it or try to steal it.
+&+Y-&n Pets can no longer pick up, be given or wear artifacts. A pet that
+  already holds one keeps it and can hand it back to you.
+
+&+CLooting&n
+&+Y-&n Taking anything from the corpse of a player from the other side
+  now stops you camping or renting for &+Y5 minutes&n. Looting your own
+  side's fallen, to return their gear, is not affected.
+&+Y-&n See &+C'help artifact'&n, &+C'help camp'&n and &+C'help rent'&n.
 
 &+R11/24/26&n &+L-&n &+YFair prices, watchful scouts and rewards that stay put&n
 &+W----------------------------------------------------------------------&n
