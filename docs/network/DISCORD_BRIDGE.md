@@ -9,7 +9,10 @@ Accepted `petition` commands and staff `ptell` replies export once, outside the
 native recipient loops. A petition uses the petitioner name; a reply uses
 `Staff -> Player`. Both use `channel: "petition"`. Ideas that `idea` has
 written to the idea file export once with `channel: "idea"` and the player's
-name; map that channel to its own Discord channel. Rejected commands, ordinary
+name; map that channel to its own Discord channel. Each player may export five
+ideas per 60 seconds (enough for a long idea typed in parts); later ones in that
+window are counted as dropped and stay only in the idea file, which remains the
+complete record. Rejected commands, ordinary
 tells, other chat channels, and staff notifications do not export. Native echo,
 recipient toggles, logs, terminal output, and GMCP delivery are preserved. Zero
 online staff or disabled player echo does not suppress an accepted export.

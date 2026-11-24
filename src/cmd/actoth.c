@@ -4619,7 +4619,6 @@ void do_expkkk(P_char ch, char * /*argument*/, int /*cmd*/)
 void do_idea(P_char ch, char *argument, int /*cmd*/)
 {
 	char buf[MAX_STRING_LENGTH];
-	int result = 0;
 
 	if (IS_NPC(ch))
 	{
@@ -4639,28 +4638,20 @@ void do_idea(P_char ch, char *argument, int /*cmd*/)
 
 	snprintf(buf, MAX_STRING_LENGTH, "**%s: %s\n", GET_NAME(ch), argument);
 
-	result = InsertIntoFile(IDEA_FILE, buf);
-	if (result == 1)
+	if (!AppendToFile(IDEA_FILE, buf))
 	{
-		send_to_char("Unable to allocate necessary memory.\r\n", ch);
+		send_to_char("Could not save the idea file.\r\n", ch);
 		perror("do_idea");
+		return;
 	}
-	else if (result == 2)
-	{
-		send_to_char("Could not open the idea file.\r\n", ch);
-		perror("do_idea");
-	}
-	else
-	{
-		send_to_char("The idea has been logged - thanks for your input.\r\n", ch);
-		discord_idea_export(ch, argument);
-	}
+
+	send_to_char("The idea has been logged - thanks for your input.\r\n", ch);
+	discord_idea_export(ch, argument);
 }
 
 void do_typo(P_char ch, char *argument, int /*cmd*/)
 {
 	char buf[MAX_STRING_LENGTH];
-	int result = 0;
 
 	if (IS_NPC(ch))
 	{
@@ -4681,28 +4672,20 @@ void do_typo(P_char ch, char *argument, int /*cmd*/)
 	snprintf(buf, MAX_STRING_LENGTH, "**%s[%d]: %s\n", GET_NAME(ch), world[ch->in_room].number,
 		 argument);
 
-	result = InsertIntoFile(TYPO_FILE, buf);
-	if (result == 1)
+	if (!AppendToFile(TYPO_FILE, buf))
 	{
-		send_to_char("Unable to allocate necessary memory.\r\n", ch);
+		send_to_char("Could not save the typo file.\r\n", ch);
 		perror("do_typo");
+		return;
 	}
-	else if (result == 2)
-	{
-		send_to_char("Could not open the idea file.\r\n", ch);
-		perror("do_typo");
-	}
-	else
-	{
-		send_to_char("The typo has been logged - thanks for your input.\r\n", ch);
-	}
+
+	send_to_char("The typo has been logged - thanks for your input.\r\n", ch);
 }
 
 void do_bug(P_char ch, char *argument, int /*cmd*/)
 {
 	char buf[MAX_STRING_LENGTH];
 	long t = 0;
-	int result = 0;
 
 	if (IS_NPC(ch))
 	{
@@ -4725,24 +4708,17 @@ void do_bug(P_char ch, char *argument, int /*cmd*/)
 	snprintf(buf, MAX_STRING_LENGTH, "%s **%s[%d]: %s\n", ctime(&t), GET_NAME(ch),
 		 world[ch->in_room].number, argument);
 
-	result = InsertIntoFile(BUG_FILE, buf);
-	if (result == 1)
+	if (!AppendToFile(BUG_FILE, buf))
 	{
-		send_to_char("Unable to allocate necessary memory.\r\n", ch);
+		send_to_char("Could not save the bug file.\r\n", ch);
 		perror("do_bug");
+		return;
 	}
-	else if (result == 2)
-	{
-		send_to_char("Could not open the bug file.\r\n", ch);
-		perror("do_bug");
-	}
-	else
-	{
-		send_to_char("The bug has been logged - thanks for your input.\r\n", ch);
-		send_to_char(
-			"If you specified the symptoms of the bug and steps that led to it, it will be reviewed shortly.\r\n",
-			ch);
-	}
+
+	send_to_char("The bug has been logged - thanks for your input.\r\n", ch);
+	send_to_char(
+		"If you specified the symptoms of the bug and steps that led to it, it will be reviewed shortly.\r\n",
+		ch);
 }
 
 void do_cheat(P_char ch, char *argument, int /*cmd*/)

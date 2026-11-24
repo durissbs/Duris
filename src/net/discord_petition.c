@@ -7,7 +7,9 @@
 #include "core/prototypes.h"
 
 #include <cstring>
+#include <ctime>
 #include <string>
+#include <unordered_map>
 
 namespace
 {
@@ -116,7 +118,44 @@ void discord_petition_export(char_data *sender, const char *message, char_data *
 	export_event("petition", sender, message, target);
 }
 
+namespace
+{
+// A long idea may be typed in several parts, so each player gets a short burst
+// before further ideas skip Discord. The idea file still keeps every one.
+constexpr int idea_burst = 5;
+constexpr time_t idea_window_seconds = 60;
+
+struct idea_window
+{
+	time_t start = 0;
+	int count = 0;
+};
+
+std::unordered_map<std::string, idea_window> idea_windows;
+
+bool allow_idea(const char *name)
+{
+	timespec clock{};
+	clock_gettime(CLOCK_MONOTONIC, &clock);
+	const time_t now = clock.tv_sec;
+	if (idea_windows.size() > 1000)
+		std::erase_if(idea_windows, [now](const auto &entry)
+			      { return now - entry.second.start >= idea_window_seconds; });
+	idea_window &window = idea_windows[name];
+	if (!window.count || now - window.start >= idea_window_seconds)
+		window = { now, 0 };
+	return ++window.count <= idea_burst;
+}
+} // namespace
+
 void discord_idea_export(char_data *sender, const char *message)
 {
+	if (!discord_bridge_get_status().listening)
+		return;
+	if (!allow_idea(GET_NAME(sender)))
+	{
+		discord_bridge_publish(nullptr, nullptr); // counted as a dropped event
+		return;
+	}
 	export_event("idea", sender, message, nullptr);
 }

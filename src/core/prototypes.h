@@ -920,7 +920,7 @@ void weather_setup(int mini_mode);
 int get_mob_table(int);
 int get_obj_table(int);
 void room_event(P_char, P_char, P_obj, void *);
-int InsertIntoFile(const char *filename, const char *text);
+bool AppendToFile(const char *filename, const char *text);
 
 /* debug.c */
 

@@ -54,6 +54,8 @@ assert "condition: service_healthy" in compose
 assert "mariadb-data:/var/lib/mysql" in compose
 assert "mariadb-socket:/run/mysqld:ro" in compose
 assert "duris-players:/opt/duris/Players" in compose
+# Player idea/bug/typo reports must survive container recreation.
+assert "duris-reports:/opt/duris/lib/reports" in compose
 assert "DB_SOCKET: /run/mysqld/mysqld.sock" in compose
 assert "DB_HOST: localhost" in compose
 assert "DB_ALLOWED_TARGETS: localhost/duris_dev" in compose
@@ -105,5 +107,6 @@ for command in (
 
 assert "persistent named volume" in guide
 assert "duris-players" in guide
+assert "duris-reports" in guide
 
 print("Docker deployment contracts passed")
