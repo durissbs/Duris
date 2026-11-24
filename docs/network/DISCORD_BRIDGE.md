@@ -7,7 +7,12 @@ there is no command interpreter or player broadcast path.
 
 Accepted `petition` commands and staff `ptell` replies export once, outside the
 native recipient loops. A petition uses the petitioner name; a reply uses
-`Staff -> Player`. Both use `channel: "petition"`. Rejected commands, ordinary
+`Staff -> Player`. Both use `channel: "petition"`. Ideas that `idea` has
+written to the idea file export once with `channel: "idea"` and the player's
+name; map that channel to its own Discord channel. Each player may export five
+ideas per 60 seconds (enough for a long idea typed in parts); later ones in that
+window are counted as dropped and stay only in the idea file, which remains the
+complete record. Rejected commands, ordinary
 tells, other chat channels, and staff notifications do not export. Native echo,
 recipient toggles, logs, terminal output, and GMCP delivery are preserved. Zero
 online staff or disabled player echo does not suppress an accepted export.
@@ -69,7 +74,7 @@ no socket and ignores unused endpoint settings.
 ## Wire and bounded work
 
 UTF-8 JSON objects are followed by LF; CRLF is accepted. Required outgoing
-fields are `channel: "petition"`, `name`, `message`, and numeric `emoted: 0`.
+fields are `channel` (`"petition"` or `"idea"`), `name`, `message`, and numeric `emoted: 0`.
 cJSON handles escaping. Incoming `auth` uses `message` as the token; a bad token
 closes the client. `heartbeat` with `message: "ping"` is consumed without a
 pong. No auth acknowledgment is required. Other records never reach gameplay.

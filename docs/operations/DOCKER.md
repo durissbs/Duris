@@ -78,7 +78,9 @@ approved backup policy ([BACKUPS.md](BACKUPS.md)), and this deployment sets neit
 locker identification receipts, maintenance state, and the local TLS key are in
 the `duris-runtime` volume. Filesystem-backed player state such as lockers,
 crafting recipes, aliases, and death-object configuration is in `duris-players`.
-Game logs are in `duris-logs`, and MariaDB data is in `mariadb-data`.
+Game logs are in `duris-logs`, player `idea`, `bug` and `typo` reports are in
+`duris-reports`, and MariaDB data is in `mariadb-data`. No backup job copies
+`duris-reports`; copy it yourself if you need one.
 
 `mariadb-socket` is also a persistent named volume because Compose cannot share
 a tmpfs between services. It contains no durable application state, but it can

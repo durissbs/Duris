@@ -160,7 +160,8 @@ def run(binary, driver):
                 # Native staff output retains its existing act() dollar escaping.
                 clients[1].expect(text.replace("$", "$$"))
             if exported:
-                expected.append(f"{PLAYER}: {text}")
+                # The relay escapes Markdown, so a literal backslash arrives doubled.
+                expected.append(f"{PLAYER}: {text}".replace("\\", "\\\\"))
                 sink.expect_posts(expected)
 
         def reply(text, *, exported=True, hidden=False):
@@ -168,7 +169,7 @@ def run(binary, driver):
             received = clients[0].expect(text)
             assert ("Someone" if hidden else STAFF) + " responds to your petition" in received
             if exported:
-                expected.append(f"{STAFF} -> {PLAYER}: {text}")
+                expected.append(f"{STAFF} -> {PLAYER}: {text}".replace("\\", "\\\\"))
                 sink.expect_posts(expected)
 
         try:
