@@ -85,22 +85,62 @@ int get_property(const char *, int)
 {
 	return 0;
 }
-affected_type *affect_to_char(P_char, affected_type *)
+// Affects added by the herbs, linked onto the character as the game does (newest first).
+static affected_type added_affects[32];
+static int added_count;
+static int spell_pulse_affects;
+static int last_spell_pulse;
+static int last_removed_type;
+affected_type *affect_to_char(P_char ch, affected_type *af)
 {
-	return nullptr;
+	if (af->location == APPLY_SPELL_PULSE)
+	{
+		spell_pulse_affects++;
+		last_spell_pulse = af->modifier;
+	}
+	assert(added_count < 32);
+	affected_type *copy = &added_affects[added_count++];
+	*copy = *af;
+	copy->next = ch->affected;
+	ch->affected = copy;
+	return copy;
 }
 P_char get_linked_char(P_char, unsigned short)
 {
 	return nullptr;
 }
-void affect_from_char(P_char, int) {}
-bool affected_by_spell(P_char, int)
+void affect_from_char(P_char, int type)
 {
+	last_removed_type = type;
+}
+bool affected_by_spell(P_char ch, int type)
+{
+	for (affected_type *af = ch->affected; af; af = af->next)
+		if (af->type == type)
+			return true;
 	return false;
 }
 int GET_CLASS(P_char, unsigned int)
 {
 	return 0;
+}
+
+void herb_ocularius(int level, int duration, P_char smoker);
+void herb_blue_haze(int level, int duration, P_char smoker);
+void herb_black_kush(int level, int duration, P_char smoker);
+
+// Every affect of this type has this duration, and there is more than one.
+static void assert_all_durations(P_char ch, int type, int duration)
+{
+	int count = 0;
+	for (affected_type *af = ch->affected; af; af = af->next)
+	{
+		if (af->type != type)
+			continue;
+		assert(af->duration == duration);
+		count++;
+	}
+	assert(count > 1);
 }
 
 static char_data make_character(int race, int room_num)
@@ -327,6 +367,53 @@ int main()
 		last_output.clear();
 		do_smoke(&ch, arg, 0);
 		assert(last_output.find("kicked up by your movement") != std::string::npos);
+	}
+
+	// 11. Blue Haze speeds casting: its spell pulse modifier is negative.
+	{
+		char_data ch = make_character(RACE_HUMAN, 2001);
+		spell_pulse_affects = 0;
+		herb_blue_haze(25, 10, &ch);
+		assert(spell_pulse_affects == 1);
+		assert(last_spell_pulse < 0);
+	}
+
+	// 12. Smoking Blue Haze again renews every one of its affects, not just the newest.
+	{
+		added_count = 0;
+		char_data ch = make_character(RACE_HUMAN, 2001);
+		herb_blue_haze(25, 10, &ch);
+		herb_blue_haze(25, 10, &ch);
+		assert_all_durations(&ch, HERB_BLUE_HAZE, 20);
+	}
+
+	// 13. Smoking Black Kush again renews every one of its affects, not just the combat pulse penalty.
+	{
+		added_count = 0;
+		char_data ch = make_character(RACE_HUMAN, 2001);
+		herb_black_kush(25, 10, &ch);
+		herb_black_kush(25, 10, &ch);
+		assert_all_durations(&ch, HERB_BLACK_KUSH, 20);
+	}
+
+	// 14. Blue Haze strips the Slow spell (AFF2_SLOW is a flag, not a spell number).
+	{
+		added_count = 0;
+		char_data ch = make_character(RACE_HUMAN, 2001);
+		SET_BIT(ch.specials.affected_by2, AFF2_SLOW);
+		last_removed_type = 0;
+		herb_blue_haze(25, 10, &ch);
+		assert(last_removed_type == SPELL_SLOW);
+	}
+
+	// 15. Ocularius strips the Haste spell (AFF_HASTE is a flag, not a spell number).
+	{
+		added_count = 0;
+		char_data ch = make_character(RACE_HUMAN, 2001);
+		SET_BIT(ch.specials.affected_by, AFF_HASTE);
+		last_removed_type = 0;
+		herb_ocularius(25, 10, &ch);
+		assert(last_removed_type == SPELL_HASTE);
 	}
 
 	std::printf("All underground and surface smoking weather tests passed successfully.\n");
