@@ -220,7 +220,8 @@ P_char artifact_holder(P_obj object)
 	while (OBJ_INSIDE(object) && object->loc.inside)
 		object = object->loc.inside;
 	return OBJ_CARRIED(object) ? object->loc.carrying :
-	       OBJ_WORN(object) ? object->loc.wearing : nullptr;
+	       OBJ_WORN(object)	   ? object->loc.wearing :
+				     nullptr;
 }
 
 int count_objects(P_obj object)
@@ -332,7 +333,8 @@ std::string check_plan(sideswap_request &request)
 		target.artifacts = static_cast<int>(artifacts.size());
 		for (P_obj artifact : artifacts)
 			if (!artifact_is_canonical(artifact) || !artifact_holder(artifact))
-				problems += who + "has an artifact with invalid identity or custody.\r\n";
+				problems += who +
+					    "has an artifact with invalid identity or custody.\r\n";
 		if (target.artifacts && !request.artis && !updateArtis)
 			problems += who +
 				    "artifact updates are off, so its artifacts cannot return to "
@@ -348,7 +350,9 @@ std::string check_plan(sideswap_request &request)
 				for (int slot = 0; slot < MAX_WEAR; ++slot)
 					if (holder->equipment[slot])
 						target.destroyed_items +=
-							1 + count_objects(holder->equipment[slot]->contains);
+							1 +
+							count_objects(
+								holder->equipment[slot]->contains);
 			}
 			target.destroyed_items -= target.artifacts;
 		}
@@ -594,7 +598,8 @@ bool swap_character(const sideswap_request &request, sideswap_target &target)
 					while (object->contains)
 					{
 						P_obj child = object->contains;
-						audit_item_removal("sideswap", capture_item_removal(child));
+						audit_item_removal("sideswap",
+								   capture_item_removal(child));
 						extract_obj(child, TRUE);
 					}
 					continue;
@@ -660,15 +665,19 @@ bool swap_character(const sideswap_request &request, sideswap_target &target)
 // the affected characters before a restart releases the in-memory fence.
 void apply_failed(const std::shared_ptr<sideswap_request> &request, const std::string &reason)
 {
-	std::string detail = reason + " Account bank, locker and side were not confirmed. "
-			     "Account remains locked; reconcile the character saves before restarting.\r\n";
+	std::string detail =
+		reason +
+		" Account bank, locker and side were not confirmed. "
+		"Account remains locked; reconcile the character saves before restarting.\r\n";
 	for (const sideswap_target &target : request->targets)
-		detail += target.name + (target.saved_revision ? ": save queued at revision " +
-							     std::to_string(target.saved_revision) : ": no final save queued") +
+		detail += target.name +
+			  (target.saved_revision ? ": save queued at revision " +
+							   std::to_string(target.saved_revision) :
+						   ": no final save queued") +
 			  "\r\n";
 	tell(*request, detail);
-	logit(LOG_WIZ, "sideswap: account %s needs reconciliation: %s",
-	      request->account.c_str(), detail.c_str());
+	logit(LOG_WIZ, "sideswap: account %s needs reconciliation: %s", request->account.c_str(),
+	      detail.c_str());
 	finish(request, false);
 }
 
@@ -708,7 +717,8 @@ void apply(const std::shared_ptr<sideswap_request> &request)
 		    !player_revision_snapshot_copy(target.pid, &revision) ||
 		    revision.acknowledged_revision <= target.loaded_revision)
 		{
-			apply_failed(request, "Could not queue the final save of " + target.name + ".");
+			apply_failed(request,
+				     "Could not queue the final save of " + target.name + ".");
 			return;
 		}
 		target.saved_revision = revision.acknowledged_revision;
@@ -721,7 +731,8 @@ void apply(const std::shared_ptr<sideswap_request> &request)
 	const auto query = revision_query(*request) + " FOR UPDATE";
 	const int side = request->to_side;
 	if (!sql_read_work(
-		    [query, statements, expected, side](MYSQL *connection, sql_rows *rows) -> unsigned int
+		    [query, statements, expected, side](MYSQL *connection,
+							sql_rows *rows) -> unsigned int
 		    {
 			    if (const auto error = sql_select(connection, query, rows))
 				    return error;
@@ -736,7 +747,9 @@ void apply(const std::shared_ptr<sideswap_request> &request)
 		    {
 			    if (!ok)
 			    {
-				    apply_failed(request, "Final account transaction failed or was uncertain.");
+				    apply_failed(
+					    request,
+					    "Final account transaction failed or was uncertain.");
 				    return;
 			    }
 			    char buf[MAX_STRING_LENGTH];
@@ -749,8 +762,10 @@ void apply(const std::shared_ptr<sideswap_request> &request)
 				     request->locker, request->frags);
 			    logit(LOG_WIZ, "%s", buf);
 			    wizlog(GREATER_G, "%s", buf);
-			    snprintf(buf, sizeof(buf), "Done: %zu of %zu character(s) saved on the %s side.\r\n",
-				     request->targets.size(), request->targets.size(), side_name(request->to_side));
+			    snprintf(buf, sizeof(buf),
+				     "Done: %zu of %zu character(s) saved on the %s side.\r\n",
+				     request->targets.size(), request->targets.size(),
+				     side_name(request->to_side));
 			    tell(*request, buf);
 			    finish(request);
 		    }))
@@ -784,30 +799,32 @@ void all_loaded(const std::shared_ptr<sideswap_request> &request)
 	std::vector<std::pair<int, player_revision_t>> expected;
 	for (const sideswap_target &target : request->targets)
 		expected.emplace_back(target.pid, target.loaded_revision);
-	if (!sql_read(revision_query(*request),
-		      [request, expected](bool ok, const sql_rows &rows)
-		      {
-			      if (!ok || any_in_game(*request) ||
-				  !revisions_match(rows, expected, request->from_side))
-			      {
-				      tell(*request, "Account changed while loading. Nothing was changed.\r\n");
-				      finish(request);
-				      return;
-			      }
-			      for (const sideswap_target &target : request->targets)
-			      {
-				      player_revision_snapshot revision = {};
-				      if (!player_revision_snapshot_copy(target.pid, &revision) ||
-					  revision.written_revision != target.loaded_revision)
-				      {
-					      tell(*request, "Character save changed while loading. "
-					     "Nothing was changed.\r\n");
-					      finish(request);
-					      return;
-				      }
-			      }
-			      apply(request);
-		      }))
+	if (!sql_read(
+		    revision_query(*request),
+		    [request, expected](bool ok, const sql_rows &rows)
+		    {
+			    if (!ok || any_in_game(*request) ||
+				!revisions_match(rows, expected, request->from_side))
+			    {
+				    tell(*request,
+					 "Account changed while loading. Nothing was changed.\r\n");
+				    finish(request);
+				    return;
+			    }
+			    for (const sideswap_target &target : request->targets)
+			    {
+				    player_revision_snapshot revision = {};
+				    if (!player_revision_snapshot_copy(target.pid, &revision) ||
+					revision.written_revision != target.loaded_revision)
+				    {
+					    tell(*request, "Character save changed while loading. "
+							   "Nothing was changed.\r\n");
+					    finish(request);
+					    return;
+				    }
+			    }
+			    apply(request);
+		    }))
 	{
 		tell(*request, "The database is busy. Nothing was changed.\r\n");
 		finish(request);
@@ -905,10 +922,14 @@ void account_loaded(const std::shared_ptr<sideswap_request> &request, bool ok, P
 					 {
 						 request->targets[index].ch = loaded;
 						 player_revision_snapshot revision = {};
-						 const bool valid = loaded && player_revision_snapshot_copy(
-								 request->targets[index].pid, &revision);
+						 const bool valid =
+							 loaded &&
+							 player_revision_snapshot_copy(
+								 request->targets[index].pid,
+								 &revision);
 						 request->load_failed |= !valid;
-						 request->targets[index].loaded_revision = revision.written_revision;
+						 request->targets[index].loaded_revision =
+							 revision.written_revision;
 						 one_loaded(request);
 					 }))
 		{
@@ -988,14 +1009,17 @@ void do_sideswap(P_char ch, char *argument, int /*cmd*/)
 			for (const sideswap_target &other : request->targets)
 				if (!strcasecmp(other.name.c_str(), target.name.c_str()))
 				{
-					send_to_char_f(ch, "%s is listed more than once.\r\n", word);
+					send_to_char_f(ch, "%s is listed more than once.\r\n",
+						       word);
 					return;
 				}
 			target.race = find_race(race);
 			if (target.race <= 0 || target.race > LAST_RACE ||
-			    race_side(target.race) == RACEWAR_NONE || !creation_race_enabled(target.race))
+			    race_side(target.race) == RACEWAR_NONE ||
+			    !creation_race_enabled(target.race))
 			{
-				send_to_char_f(ch, "%s is not one enabled playable race.\r\n", race);
+				send_to_char_f(ch, "%s is not one enabled playable race.\r\n",
+					       race);
 				return;
 			}
 			if (cls && !(target.m_class = find_class(cls)))
