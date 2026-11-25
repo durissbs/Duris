@@ -48,6 +48,8 @@ bool floor_runtime_materializing = false;
 char floor_key[128] = {};
 char floor_index_key[128] = {};
 pending_floor_drop floor_drop_batch[max_floor_drop_batch] = {};
+// Game-thread scratch; serialization must succeed before replacing a pending record.
+pending_floor_drop floor_drop_replacement = {};
 int floor_drop_batch_count = 0;
 unsigned long floor_drop_removes[max_floor_drop_batch] = {};
 int floor_drop_remove_count = 0;
@@ -111,6 +113,25 @@ void redis_log_floor_drop(P_obj obj, int room_vnum)
 			return;
 	}
 
+	const int size = world_recovery_write_object_to_buffer(
+		obj, room_vnum, reinterpret_cast<char *>(floor_drop_replacement.record),
+		sizeof(floor_drop_replacement.record));
+	if (size <= 0)
+		return;
+	floor_drop_replacement.uid = obj->obj_uid;
+	floor_drop_replacement.record_size = static_cast<size_t>(size);
+
+	// Keep one pending upsert per UID. A failed replacement leaves the previous
+	// recoverable record untouched, and relocation never emits a delete.
+	for (int index = 0; index < floor_drop_batch_count; ++index)
+	{
+		if (floor_drop_batch[index].uid == obj->obj_uid)
+		{
+			floor_drop_batch[index] = floor_drop_replacement;
+			return;
+		}
+	}
+
 	if (floor_drop_batch_count >= max_floor_drop_batch)
 	{
 		redis_flush_floor_drops();
@@ -121,15 +142,16 @@ void redis_log_floor_drop(P_obj obj, int room_vnum)
 		}
 	}
 
-	const int index = floor_drop_batch_count;
-	const int size = world_recovery_write_object_to_buffer(
-		obj, room_vnum, reinterpret_cast<char *>(floor_drop_batch[index].record),
-		sizeof(floor_drop_batch[index].record));
-	if (size <= 0)
-		return;
-	floor_drop_batch[index].uid = obj->obj_uid;
-	floor_drop_batch[index].record_size = static_cast<size_t>(size);
-	++floor_drop_batch_count;
+	floor_drop_batch[floor_drop_batch_count++] = floor_drop_replacement;
+	// If the same item was picked up and redropped before a flush, the new
+	// upsert supersedes its queued removal.
+	for (int index = 0; index < floor_drop_remove_count; ++index)
+	{
+		if (floor_drop_removes[index] == obj->obj_uid)
+		{
+			floor_drop_removes[index--] = floor_drop_removes[--floor_drop_remove_count];
+		}
+	}
 #endif
 }
 
@@ -185,12 +207,21 @@ void redis_remove_floor_drop(unsigned long obj_uid)
 			--floor_drop_batch_count;
 			if (index != floor_drop_batch_count)
 				floor_drop_batch[index] = floor_drop_batch[floor_drop_batch_count];
-			return;
+			break;
 		}
 	}
 
+	// A pending upsert may replace an already durable record. Cancelling the
+	// upsert alone is not sufficient when the object is picked up or destroyed.
+	for (int index = 0; index < floor_drop_remove_count; ++index)
+		if (floor_drop_removes[index] == obj_uid)
+			return;
+	if (floor_drop_remove_count >= max_floor_drop_batch)
+		redis_flush_floor_drops();
 	if (floor_drop_remove_count < max_floor_drop_batch)
 		floor_drop_removes[floor_drop_remove_count++] = obj_uid;
+	else
+		logit(LOG_SYS, "redis: floor removal retry buffer is full");
 #else
 	(void)obj_uid;
 #endif
