@@ -63,6 +63,11 @@ void obj_to_room(P_obj object, int room)
     object->loc.room = room;
 }
 
+void obj_to_room_dropped(P_obj object, int room)
+{
+    obj_to_room(object, room);
+}
+
 void act(const char *message, int, P_char, P_obj, void *, int)
 {
     ++act_calls;
