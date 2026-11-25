@@ -135,7 +135,7 @@ int main() {
     assert(OBJ_IN_ROOM(&weapon, 0));
     dispatch(360);
     assert(OBJ_IN_ROOM(&weapon, 1) && !rooms[0].contents && events.empty());
-    assert(messages.size() == 3 && removed == 1 && floor_room == 31724);
+    assert(messages.size() == 3 && removed == 0 && floor_room == 31724);
     obj_from_room(&weapon);
 
     // Pickup cancels both events, including a pickup after the warning.
@@ -150,17 +150,33 @@ int main() {
         obj_from_room(&weapon);
     }
 
-    // Two independent drops, including a bag, cancel independently.
-    auto bag = item(ITEM_CONTAINER);
-    bag.obj_uid = 43;
+    // Two independent equipment drops cancel independently.
+    auto other = item(ITEM_ARMOR);
+    other.obj_uid = 43;
     obj_to_room_dropped(&weapon, 0);
-    obj_to_room_dropped(&bag, 0);
+    obj_to_room_dropped(&other, 0);
     obj_from_room(&weapon);
     assert(events.size() == 2);
     dispatch(240);
     dispatch(360);
-    assert(OBJ_IN_ROOM(&bag, 1) && OBJ_NOWHERE(&weapon));
-    obj_from_room(&bag);
+    assert(OBJ_IN_ROOM(&other, 1) && OBJ_NOWHERE(&weapon));
+    obj_from_room(&other);
+
+    // Empty and filled mutable containers must not expose stale floor trees
+    // to the new surface recovery window.
+    for (int type : {ITEM_CONTAINER, ITEM_QUIVER, ITEM_SPELLBOOK}) {
+        auto bag = item(type);
+        auto a = item(), b = item();
+        a.obj_uid = 44; b.obj_uid = 45;
+        for (bool filled : {false, true}) {
+            bag.contains = filled ? &a : nullptr;
+            a.next_content = &b;
+            obj_to_room_dropped(&bag, 0);
+            assert(OBJ_IN_ROOM(&bag, 1) && events.empty());
+            assert(bag.contains == (filled ? &a : nullptr));
+            obj_from_room(&bag);
+        }
+    }
 
     // Legacy paths and exceptions are unchanged.
     obj_to_room(&weapon, 0);
