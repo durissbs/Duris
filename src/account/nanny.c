@@ -4460,21 +4460,8 @@ void nanny(P_desc d, char *arg)
 	case CON_GET_ACCT_PASSWD:
 		get_account_password(d, arg);
 		break;
-		/*
-			  case CON_IS_ACCT_CONFIRMED:
-			        echo_on(d);
-			        if(is_account_confirmed(d)) {
-			                display_account_menu(d, NULL);
-			                STATE(d) = CON_DISPLAY_ACCT_MENU;
-			        } else {
-			                confirm_account(d, NULL);
-			                STATE(d) = CON_CONFIRM_ACCT;
-			        }
-			        break;
-			        */
-
-	case CON_CONFIRM_ACCT:
-		confirm_account(d, arg);
+		case CON_CONFIRM_ACCT:
+		STATE(d) = CON_FLUSH;
 		break;
 
 	case CON_VERIFY_NEW_ACCT_NAME:
