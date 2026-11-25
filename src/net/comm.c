@@ -1186,10 +1186,7 @@ int run_the_game(int port, int sslport)
 		logit(LOG_STATUS,
 		      "Player load pipeline unavailable; existing characters cannot log in.");
 	player_load_pipeline_set_hold(player_save_pipeline_load_held);
-	/* Same rule for the mail worker: joinable thread only after the fatal loads. */
-	if (!account_recovery_init())
-		logit(LOG_STATUS,
-		      "Account recovery unavailable; password reset by email disabled.");
+	/* Account recovery is staff-only; do not start the legacy SMTP worker. */
 
 	information_cache_refresh();
 	help_cache_refresh();
