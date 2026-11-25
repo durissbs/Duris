@@ -2945,6 +2945,11 @@ static void copy_account(P_acct to, const struct acct_entry *from)
 
 void account_read(P_desc d, const char *name, account_read_done done)
 {
+	if (account_sideswap_in_progress(name))
+	{
+		done(d, false, nullptr);
+		return;
+	}
 	const uint64_t id = wait_for_writer(d);
 	if (!sql_load_account(name,
 			      [id, done](bool ok, P_acct loaded)
@@ -2953,6 +2958,12 @@ void account_read(P_desc d, const char *name, account_read_done done)
 				      if (!reader)
 				      {
 					      free_account(loaded);
+					      return;
+				      }
+				      if (loaded && account_sideswap_in_progress(loaded->acct_name))
+				      {
+					      free_account(loaded);
+					      done(reader, false, nullptr);
 					      return;
 				      }
 				      if (!ok)

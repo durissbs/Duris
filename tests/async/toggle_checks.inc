@@ -232,7 +232,7 @@ static void toggle_matrix()
 	for (const auto &[value, type] : std::vector<std::pair<const char *, int>>{
 		     { "GEN", 1 }, { "ansi  ", 2 }, { "msp\t", 3 } })
 	{
-		desc.msp_group_output = str_dup("previous group display");
+		desc.msp_group_output = new std::vector<msp_group_row>{{nullptr, "previous group display", false, 0, 0, 0, 0}};
 		desc.last_group_update = 0;
 		run(std::string("terminal ") + value);
 		assert(desc.term_type == type);
@@ -245,11 +245,12 @@ static void toggle_matrix()
     assert(!desc.msp_group_manual);
     for (const char *invalid : { "invalid", "ansi extra", "msp quiet extra" })
 	{
-		desc.msp_group_output = str_dup("previous group display");
+		desc.msp_group_output = new std::vector<msp_group_row>{{nullptr, "previous group display", false, 0, 0, 0, 0}};
 		assert(run(std::string("terminal ") + invalid).find("USAGE") != std::string::npos);
 		assert(desc.term_type == 3);
-		assert(std::string(desc.msp_group_output) == "previous group display");
-		FREE(desc.msp_group_output);
+		assert(desc.msp_group_output && desc.msp_group_output->front().label == "previous group display");
+		delete desc.msp_group_output;
+		desc.msp_group_output = nullptr;
 	}
 	run("terminal");
 	assert(desc.term_type == 2);

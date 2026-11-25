@@ -1503,8 +1503,8 @@ void enter_game(P_desc d)
 	bool nobonus = FALSE;
 	P_char ch = d->character;
 	const bool new_character = ch && GET_LEVEL(ch) == 0;
-	if (d->msp_group_output)
-		FREE(d->msp_group_output);
+	delete d->msp_group_output;
+	d->msp_group_output = nullptr;
 	if (d->msp_automap_output)
 		FREE(d->msp_automap_output);
 	if (d->term_type == TERM_MSP)

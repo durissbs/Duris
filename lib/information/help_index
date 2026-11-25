@@ -23036,6 +23036,42 @@ silence spell.
 See also: FREEZE, PETITION_BLOCK, "GOD, SILENCE"
 ===========================================================================
 #
+SIDESWAP (Immortal Command)
+===========================================================================
+Syntax: sideswap <account> <char>=<race>[:<class>] [<char>=<race>[:<class>] ...]
+                 [+money] [+eq] [+epics] [+artis] [+locker] [+frags] [confirm]
+
+Greater God command (level 60). Moves every character of an account between
+good and evil. The whole account must be logged out, and every character on
+it must be listed with its new race (and its new class, to change class).
+
+Each character keeps its name, level, experience, base stats, hit points,
+personal locker and ships. It is rebuilt for its new race and class as
+creation builds one: alignment, hometown and start room, height, weight and
+size. Skills it had keep their level; skills new to it are set to what a new
+character of its level has. It leaves its guild.
+
+Without an option, what it covers stays behind or is reset:
+  +money   coins on hand and the account bank go along (otherwise the coins
+           go to the old side's bank, and the bank stays there)
+  +eq      equipment and inventory go along, moved to inventory to be worn
+           again (otherwise they are destroyed, including pet gear)
+  +epics   epic points and epic skills go along; epic skills the new race or class
+           cannot use are refunded, the epic points to the character and the
+           coins to the new side's bank (otherwise all are reset)
+  +artis   artifacts go along (otherwise they return to the world)
+  +locker  the account locker goes along; refused while the new side's
+           locker holds anything
+  +frags   frags go along (otherwise they are reset)
+
+Without confirm, it only shows what it would do. Account login is blocked
+while a swap is running. If a save or final account write fails, the account
+stays locked in memory; staff must reconcile its characters and assets before
+restarting the server. A partial save is not automatically rolled back.
+
+See also: NEWCHAR, SETBIT
+===========================================================================
+#
 SNOOP (Immortal Command)
 ===========================================================================
 Syntax: snoop <victim> | snoop <victim> silent <reason> | snoop me

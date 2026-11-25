@@ -1293,7 +1293,8 @@ const char *command[MAX_CMD] = {
 	"class",
 	"keptchar",
 	"copyover",
-	"\n" /* MAX_CMD = 878, MAX_CMD_LIST = 1000 */
+	"sideswap",
+	"\n" /* MAX_CMD = 879, MAX_CMD_LIST = 1000 */
 };
 
 const char *fill_words[] = { "in", "from", "with", "the", "on", "at", "to", "\n" };
@@ -3555,6 +3556,7 @@ void assign_command_pointers(void)
 	CMD_Y(CMD_FLIGHTS, STAT_DEAD + POS_PRONE, do_flights, 0, FALSE);
 	CMD_N(CMD_POLL, STAT_NORMAL + POS_PRONE, do_poll, 30, FALSE);
 	CMD_GRT(CMD_NEWCHAR, STAT_DEAD + POS_PRONE, do_newchar, OVERLORD);
+	CMD_GRT(CMD_SIDESWAP, STAT_DEAD + POS_PRONE, do_sideswap, GREATER_G);
 	CMD_GRT(CMD_BATTLEPREP, STAT_DEAD + POS_PRONE, do_battleprep, OVERLORD);
 
 	/*
