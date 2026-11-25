@@ -205,7 +205,7 @@ void check_derived_vitals() {
     ++b.points.base_hit;
     event_balance_affects(&b, nullptr, nullptr, nullptr);
     assert(db.prompt_mode && !db.last_group_update);
-    FREE(da.msp_group_output);
+    delete da.msp_group_output; da.msp_group_output = nullptr;
     puts("PASS: production progression, permanent/temporary unequip and deferred derived-vitals notifications");
 }
 '''
@@ -332,7 +332,7 @@ int main()
     for (bool websocket : {false, true})
     for (bool grouped : {false, true})
     {
-        if (d.msp_group_output) FREE(d.msp_group_output);
+        delete d.msp_group_output; d.msp_group_output = nullptr;
         d.term_type = terminal; d.gmcp_enabled = gmcp; d.websocket = websocket;
         d.last_group_update = 1; actor.group = grouped ? &head : nullptr;
         output.clear(); group_updates = 0;
@@ -347,7 +347,7 @@ int main()
     for (bool gmcp : {false, true})
     for (bool websocket : {false, true})
     {
-        if (d.msp_group_output) FREE(d.msp_group_output);
+        delete d.msp_group_output; d.msp_group_output = nullptr;
         d.term_type = TERM_MSP; d.gmcp_enabled = gmcp; d.websocket = websocket;
         actor.group = member.group = &head;
         actor.in_room = member.in_room = 1;
@@ -373,11 +373,78 @@ int main()
         assert(automatic().empty());
         ++member.points.mana;
         assert(automatic(false).empty()); // Mana is not in the MSP group display.
-        --member.points.hit;
-        assert(automatic().find("99h") != std::string::npos);
+        // No repeated one-point redraws, including at the old band boundary.
+        for (int repeat = 0; repeat < 8; ++repeat) {
+            member.points.hit = member.points.vitality = 99;
+            assert(automatic().empty());
+            member.points.hit = member.points.vitality = 100;
+            assert(automatic().empty());
+        }
+        for (int value = 99; value >= 96; --value) {
+            member.points.hit = value;
+            assert(automatic().empty());
+        }
+        member.points.hit = 95;
+        assert(automatic().find("95h") != std::string::npos);
+        member.points.vitality = 95;
+        assert(automatic().find("95m") != std::string::npos);
+        for (int repeat = 0; repeat < 8; ++repeat) {
+            member.points.hit = member.points.vitality = 94;
+            assert(automatic().empty());
+            member.points.hit = member.points.vitality = 95;
+            assert(automatic().empty());
+        }
+        // Regen-style notifications run through the same pending dispatch,
+        // with and without GMCP. They never force a quiet-mode prompt.
+        auto regen = [&]() {
+            output.clear(); group_updates = 0;
+            update_group_vitals(&member, false);
+            assert(d.last_group_update == GROUP_UPDATE_ALL);
+            pending_group_update(&actor);
+            assert(!d.last_group_update && group_updates == int(gmcp));
+            return output;
+        };
+        member.points.hit = 26;
+        assert(automatic().find("26h") != std::string::npos);
+        member.points.hit = 24;
+        assert(automatic().find("24h") != std::string::npos); // Enter critical.
+        member.points.hit = 21;
+        assert(automatic().find("21h") != std::string::npos);
+        member.points.hit = 24;
+        assert(regen().empty());
+        member.points.hit = 23;
+        assert(automatic().find("23h") != std::string::npos); // Loss after hidden recovery.
+        member.points.hit = 24;
+        assert(regen().empty());
+        member.points.hit = 23;
+        assert(automatic().empty()); // Identical to the last sent values.
+        member.points.hit = 28;
+        assert(regen().find("28h") != std::string::npos);
+        member.points.hit = 98;
+        member.points.vitality = 98;
+        assert(regen().find("98h") != std::string::npos);
+        member.points.hit = 99;
+        member.points.vitality = 99;
+        assert(regen().empty());
+        member.points.hit = member.points.vitality = 100;
+        assert(regen().find("100h") != std::string::npos); // Final recovery.
+        member.points.hit = 210;
+        member.points.max_hit = 1000;
+        assert(automatic().find("210h") != std::string::npos);
+        member.points.hit = 240;
+        assert(regen().empty());
+        member.points.hit = 230;
+        assert(automatic().find("230h") != std::string::npos);
+        member.points.vitality = member.points.max_vitality = 200;
+        assert(automatic().find("200M") != std::string::npos);
+        member.points.vitality = member.points.max_vitality = 100;
+        assert(automatic().find("100M") != std::string::npos);
+        member.points.hit = member.points.max_hit = 200;
+        assert(automatic().find("200H") != std::string::npos); // Same percent, new max.
+        member.points.hit = member.points.max_hit = 100;
+        assert(automatic().find("100H") != std::string::npos);
+        member.points.hit = 99;
         assert(automatic().empty());
-        --member.points.vitality;
-        assert(automatic().find("99m") != std::string::npos);
         SET_BIT(member.specials.act2, PLR2_BACK_RANK);
         assert(automatic(true, true).find("Back") != std::string::npos);
         member_visible = false;
@@ -390,11 +457,14 @@ int main()
         assert(automatic().empty()); // Remote HP is not displayed to this observer.
         member.in_room = 1;
         assert(automatic(true, true).find("98h") != std::string::npos);
+        --member.points.hit;
+        assert(automatic().empty());
         std::string manual;
         for (int repeat = 0; repeat < 2; ++repeat) {
             output.clear(); group_updates = 0;
             do_group(&actor, writable_arg(""), 0);
             assert(!output.empty() && group_updates == int(gmcp));
+            assert(output.find("97h") != std::string::npos);
             if (repeat) assert(output == manual);
             manual = output;
         }
@@ -405,7 +475,7 @@ int main()
         actor.desc = &other; output.clear();
         send_msp_group(&actor, false);
         assert(output == manual);
-        FREE(other.msp_group_output);
+        delete other.msp_group_output; other.msp_group_output = nullptr;
         actor.desc = &d;
         actor.group = member.group = nullptr;
         output.clear(); d.last_group_update = 1;
@@ -447,13 +517,20 @@ int main()
     d.prompt_mode = false;
     update_group_vitals(&actor);
     assert(!d.prompt_mode); // Ordinary MSP retains its existing prompt policy.
-    // Regeneration keeps GMCP group vitals current but never requests an MSP frame.
+    // Local regeneration schedules a filtered MSP evaluation; remote
+    // regeneration remains GMCP-only.
     d.last_group_update = 0;
     update_group_vitals(&member, false);
-    assert(!d.last_group_update);
+    assert(d.last_group_update == GROUP_UPDATE_ALL);
     d.gmcp_enabled = true;
+    d.last_group_update = 0;
+    update_group_vitals(&member, false);
+    assert(d.last_group_update == GROUP_UPDATE_ALL);
+    member.in_room = 0;
+    d.last_group_update = 0;
     update_group_vitals(&member, false);
     assert(d.last_group_update == GROUP_UPDATE_REMOTE_VITALS);
+    member.in_room = actor.in_room;
     d.gmcp_enabled = false;
     d.last_group_update = 0;
     row_visits = 0;
@@ -469,7 +546,7 @@ int main()
     update_group_vitals(&member);
     pending_group_update(&actor);
     assert(!d.last_group_update && row_visits == 0);
-    FREE(d.msp_group_output);
+    delete d.msp_group_output; d.msp_group_output = nullptr;
     puts("PASS: terminal modes, unchanged automatic MSP groups, explicit groups, and leaving/rejoining");
 }
 '''
@@ -477,7 +554,7 @@ int main()
 
 def main():
     entry = extract_function("nanny.c", "void enter_game(")
-    reset_start = entry.index("\tif (d->msp_group_output)")
+    reset_start = entry.index("\tdelete d->msp_group_output;")
     reset_end = entry.index("\n\tP_desc i;", reset_start)
     entry_reset = "void reset_msp_entry(P_desc d) {\n" + entry[reset_start:reset_end] + "\n}\n"
     group = extract_function("group.c", "void do_group(")

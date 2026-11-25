@@ -3918,8 +3918,8 @@ void close_socket(struct descriptor_data *d)
 	/* Free WebSocket fragment buffer if any */
 	websocket_free(d);
 	telnet_free_output(d);
-	if (d->msp_group_output)
-		FREE(d->msp_group_output);
+	delete d->msp_group_output;
+	d->msp_group_output = nullptr;
 	if (d->msp_automap_output)
 		FREE(d->msp_automap_output);
 

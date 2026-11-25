@@ -71,12 +71,9 @@ bool IS_OUTDOORS(int) { return false; }
 int char_in_list(const P_char) { return 1; }
 void die(P_char, P_char) { assert(false && "the over-cap test must not enter death"); }
 void gmcp_char_vitals(P_char) {}
-// MSP group frames: regeneration losses redraw, gains do not.
-static int vitals_updates = 0, msp_frames = 0;
-void update_group_vitals(P_char, bool msp_frame) {
-    ++vitals_updates;
-    msp_frames += msp_frame;
-}
+// Exercise the production scheduler rather than substituting a notification stub.
+static int vitals_updates = 0;
+static descriptor_data actor_desc{}, observer_desc{};
 
 nevent_schedule_result add_event(event_func, int, P_char, P_char, P_obj, int,
                                  const void *data, int data_size) {
@@ -93,6 +90,7 @@ HELPERS = "\n".join(
         extract_function("events.c", "static struct regen_event_state regen_state_from_data("),
         extract_function("events.c", "static unsigned long long regen_elapsed_ticks("),
         extract_function("limits.c", "int hit_regen("),
+        extract_function("group.c", "void update_group_vitals("),
         extract_function("events.c", "void event_hit_regen(P_char ch,"),
     ]
 )
@@ -107,7 +105,15 @@ static void run_pulses(P_char ch, int expected_sign, int count, regen_event_stat
             break;
         assert((expected_sign < 0 && per_tick < 0) ||
                (expected_sign > 0 && per_tick > 0));
+        observer_desc.last_group_update = actor_desc.last_group_update = 0;
+        actor_desc.prompt_mode = false;
         event_hit_regen(ch, nullptr, nullptr, &state);
+        if (GET_HIT(ch) != before) {
+            ++vitals_updates;
+            assert(observer_desc.last_group_update == GROUP_UPDATE_ALL);
+            assert(!actor_desc.last_group_update);
+            assert(actor_desc.prompt_mode == (expected_sign < 0));
+        }
         assert(scheduled > 0);
         state = next_state;
         assert(GET_HIT(ch) >= -10);
@@ -117,8 +123,16 @@ static void run_pulses(P_char ch, int expected_sign, int count, regen_event_stat
 }
 
 int main() {
-    char_data ch{};
-    ch.in_room = 0;
+    char_data ch{}, observer{};
+    group_list tail{&observer, nullptr}, head{&ch, &tail};
+    ch.group = observer.group = &head;
+    ch.desc = &actor_desc;
+    observer.desc = &observer_desc;
+    actor_desc.character = &ch;
+    observer_desc.character = &observer;
+    actor_desc.term_type = observer_desc.term_type = TERM_MSP;
+    actor_desc.msp_group_manual = true;
+    ch.in_room = observer.in_room = 0;
     ch.player.level = 50;
     ch.points.hit = 115;
     ch.points.max_hit = 100;
@@ -129,7 +143,7 @@ int main() {
     // rather than being normalized to 100 on the first negative tick.
     assert(hit_regen(&ch, false) < 0);
     run_pulses(&ch, -1, 600, state);
-    assert(vitals_updates > 0 && msp_frames == vitals_updates);
+    assert(vitals_updates > 0);
     assert(GET_HIT(&ch) < 115);
     assert(GET_HIT(&ch) > GET_MAX_HIT(&ch));
     const int after_first_decay = GET_HIT(&ch);
@@ -141,9 +155,10 @@ int main() {
     ch.points.hit = 99;
     state = {0.0f, ne_event_tick};
     assert(hit_regen(&ch, false) > 0);
-    vitals_updates = msp_frames = 0;
+    vitals_updates = 0;
+    observer_desc.gmcp_enabled = true;
     run_pulses(&ch, 1, 600, state);
-    assert(vitals_updates > 0 && msp_frames == 0);
+    assert(vitals_updates > 0);
     assert(GET_HIT(&ch) == GET_MAX_HIT(&ch));
 
     std::puts("vampiric over-cap decay and ordinary healing cap regressions passed");
