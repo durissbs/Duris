@@ -1547,11 +1547,9 @@ void ws_cmd_game(struct descriptor_data *d, cJSON *data)
 }
 
 /* handle register command - create a new account */
-static void ws_begin_email_verification(P_desc d, const char *email);
-
 void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 {
-	cJSON *account_json, *password_json, *email_json;
+	cJSON *account_json, *password_json;
 	char tmp_name[MAX_INPUT_LENGTH];
 	int i;
 
@@ -1579,13 +1577,11 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 	/* get required fields from json */
 	account_json = cJSON_GetObjectItemCaseSensitive(data, "account");
 	password_json = cJSON_GetObjectItemCaseSensitive(data, "password");
-	email_json = cJSON_GetObjectItemCaseSensitive(data, "email");
 
 	if (!cJSON_IsString(account_json) || !account_json->valuestring ||
-	    !cJSON_IsString(password_json) || !password_json->valuestring ||
-	    !cJSON_IsString(email_json) || !email_json->valuestring)
+	    !cJSON_IsString(password_json) || !password_json->valuestring)
 	{
-		ws_send_auth_failed(d, "Missing required fields: account, password, email");
+		ws_send_auth_failed(d, "Missing required fields: account, password");
 		return;
 	}
 
@@ -1623,20 +1619,6 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 		}
 	}
 
-	/* validate email format */
-	if (!is_valid_email(email_json->valuestring))
-	{
-		ws_send_auth_failed(d, "Invalid email address format");
-		return;
-	}
-
-	/* check if email is already in use */
-	if (is_email_taken(email_json->valuestring))
-	{
-		ws_send_auth_failed(d, "Unable to create account with those details");
-		return;
-	}
-
 	/* validate password length */
 	if (strlen(password_json->valuestring) < 6)
 	{
@@ -1658,9 +1640,8 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 		return;
 	}
 
-	/* set account name and email */
+	/* set account name */
 	d->account->acct_name = str_dup(tmp_name);
-	d->account->acct_email = str_dup(email_json->valuestring);
 
 	if (!password_async_start(
 		    d, password_work_submit(password_json->valuestring, nullptr, nullptr, 0, 0),
@@ -1682,10 +1663,9 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 			    if (hashed_desc->account->acct_password)
 				    FREE(hashed_desc->account->acct_password);
 			    hashed_desc->account->acct_password = str_dup(hash);
-			    const std::string requested_email = hashed_desc->account->acct_email;
 			    account_create(
 				    hashed_desc,
-				    [requested_email](P_desc reader, bool ok)
+				    [](P_desc reader, bool ok)
 				    {
 					    if (!ok)
 					    {
@@ -1699,13 +1679,6 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 					    STATE(reader) = CON_ACCT_SELECT_CHAR;
 					    ws_send_auth_success(reader,
 								 reader->account->acct_name);
-					    if (account_recovery_enabled())
-						    ws_begin_email_verification(
-							    reader, requested_email.c_str());
-					    else
-						    ws_send_system(
-							    reader, "info",
-							    "Email verification is unavailable; no recovery address was saved.");
 				    });
 		    }))
 	{
@@ -2771,8 +2744,6 @@ void ws_cmd_account_info(struct descriptor_data *d, cJSON * /*data*/)
 	info_data = cJSON_CreateObject();
 
 	cJSON_AddStringToObject(info_data, "name", d->account->acct_name);
-	cJSON_AddStringToObject(info_data, "email",
-				d->account->acct_email ? d->account->acct_email : "");
 	cJSON_AddStringToObject(info_data, "created", "unknown");
 
 	/* last login */
@@ -2802,87 +2773,15 @@ void ws_cmd_account_info(struct descriptor_data *d, cJSON * /*data*/)
 	ws_send_account_message(d, "info", info_data, NULL);
 }
 
-/* change account email */
-static void ws_begin_email_verification(P_desc d, const char *email)
+/* Older clients receive an explicit error rather than an ignored request. */
+void ws_cmd_change_email(P_desc d, cJSON *)
 {
-	const auto outcome = account_email_request(d->account, email, d->host);
-	if (outcome == account_recovery_request_outcome::queued)
-		ws_send_account_message(d, "email_verification_requested", NULL, NULL);
-	else
-		ws_send_account_message(
-			d, "error", NULL,
-			outcome == account_recovery_request_outcome::disabled ?
-				"Email verification is unavailable; contact staff" :
-			outcome == account_recovery_request_outcome::suppressed ?
-				"Use your pending verification code, or wait 10 minutes before requesting another" :
-				"Unable to send a verification code; try again later or contact staff");
+	ws_send_account_message(d, "error", NULL, "Email registration has been removed");
 }
 
-static bool ws_can_change_email(P_desc d)
+static void ws_cmd_confirm_email(P_desc d, cJSON *)
 {
-	return d && d->account && !d->durisweb_verified && !d->durisweb_backend &&
-	       (STATE(d) == CON_ACCT_SELECT_CHAR || STATE(d) == CON_DISPLAY_ACCT_MENU ||
-		STATE(d) == CON_PLAYING);
-}
-
-void ws_cmd_change_email(struct descriptor_data *d, cJSON *data)
-{
-	if (!ws_can_change_email(d))
-	{
-		ws_send_account_message(d, "error", NULL, "Not logged in");
-		return;
-	}
-	const cJSON *email = data ? cJSON_GetObjectItemCaseSensitive(data, "newEmail") : NULL;
-	if (!cJSON_IsString(email) || !is_valid_email(email->valuestring))
-	{
-		ws_send_account_message(d, "error", NULL, "Invalid email format");
-		return;
-	}
-	if (is_email_taken(email->valuestring) &&
-	    (!d->account->acct_email || strcasecmp(email->valuestring, d->account->acct_email)))
-	{
-		ws_send_account_message(d, "error", NULL, "Unable to use that email address");
-		return;
-	}
-	ws_begin_email_verification(d, email->valuestring);
-}
-
-static void ws_cmd_confirm_email(P_desc d, cJSON *data)
-{
-	if (!ws_can_change_email(d))
-	{
-		ws_send_account_message(d, "error", NULL, "Not logged in");
-		return;
-	}
-	const cJSON *code = data ? cJSON_GetObjectItemCaseSensitive(data, "code") : NULL;
-	if (!cJSON_IsString(code))
-	{
-		ws_send_account_message(d, "error", NULL, "Missing verification code");
-		return;
-	}
-	account_email_complete(
-		d, code->valuestring,
-		[](P_desc reader, account_recovery_complete_outcome outcome)
-		{
-			if (!reader)
-				return;
-			if (outcome != account_recovery_complete_outcome::ok)
-			{
-				ws_send_account_message(
-					reader, "error", NULL,
-					outcome == account_recovery_complete_outcome::write_failed ||
-							outcome ==
-								account_recovery_complete_outcome::
-									load_failed ?
-						"Email could not be saved; retry with the same code" :
-						"Invalid or expired email verification code");
-				return;
-			}
-			reader->account_recovery_attempts = 0;
-			cJSON *result = cJSON_CreateObject();
-			cJSON_AddStringToObject(result, "email", reader->account->acct_email);
-			ws_send_account_message(reader, "email_changed", result, NULL);
-		});
+	ws_send_account_message(d, "error", NULL, "Email registration has been removed");
 }
 
 void ws_cmd_change_password(struct descriptor_data *d, cJSON *data)
