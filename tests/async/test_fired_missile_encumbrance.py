@@ -201,7 +201,6 @@ void extract_obj(P_obj object, int) {
 static void mark_container_dirty(P_obj) {}
 void artifact_update_location_sql(P_obj) {}
 P_obj find_live_object(P_obj, uint64_t) { std::abort(); }
-void redis_remove_floor_drop(unsigned long) { std::abort(); }
 void redis_log_floor_drop(P_obj, int) { std::abort(); }
 void writeSavedItem(P_obj) { std::abort(); }
 P_char training_dummy_item_owner(P_obj) { return nullptr; }
