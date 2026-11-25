@@ -2794,14 +2794,14 @@ bool delayed_water_drop_eligible(P_obj object, int room)
 	    world[room].sector_type == SECT_WATER_PLANE || object->z_cord != 0 ||
 	    IS_SET(object->extra_flags, ITEM_FLOAT) ||
 	    IS_SET(object->extra_flags, ITEM_TRANSIENT) || IS_ARTIFACT(object) ||
-	    object->type == ITEM_BOAT || object->type == ITEM_SHIP ||
-	    object->type == ITEM_MONEY || object->type == ITEM_CORPSE)
+	    object->contains || object->type == ITEM_CONTAINER || object->type == ITEM_QUIVER ||
+	    object->type == ITEM_SPELLBOOK)
 		return false;
 
-	// Only delay objects which the existing water rule sends to Poseidon's vault.
+	// Mutable container trees retain legacy placement until floor recovery can
+	// reconcile partial pickups. Only delay items already routed to the vault.
 	return (object->type >= ITEM_SCROLL && object->type <= ITEM_WORN) ||
-	       object->type == ITEM_CONTAINER ||
-	       (object->type >= ITEM_QUIVER && object->type <= ITEM_TOTEM) ||
+	       (object->type >= ITEM_PICK && object->type <= ITEM_TOTEM) ||
 	       object->type == ITEM_SHIELD;
 }
 
@@ -2821,7 +2821,8 @@ void event_water_drop(P_char, P_char, P_obj object, void *data)
 
 	if (state.warning)
 	{
-		announce_water_drop(object, state.room, "$p begins to slowly sink beneath the water.");
+		announce_water_drop(object, state.room,
+				    "$p begins to slowly sink beneath the water.");
 		return;
 	}
 
@@ -2841,10 +2842,7 @@ void event_water_drop(P_char, P_char, P_obj object, void *data)
 	obj_to_room(object, destination);
 	// Placement may extract an object. Never dereference a retired pointer.
 	if (P_obj moved = find_live_object(object, uid); moved && uid && OBJ_ROOM(moved))
-	{
-		redis_remove_floor_drop(uid);
 		redis_log_floor_drop(moved, world[moved->loc.room].number);
-	}
 }
 
 bool arm_water_drop(P_obj object, int room)
@@ -2913,10 +2911,6 @@ static void obj_to_room_impl(P_obj object, int room, bool dropped)
 			//  Sunk items goto vault under poseidon
 			//  note: object is not in a room yet (still LOC_NOWHERE), just redirect to vault
 			obj_to_room(object, real_room(31724));
-			if (IS_ARTIFACT(object))
-			{
-				artifact_update_location_sql(object);
-			}
 			return;
 		}
 		else
