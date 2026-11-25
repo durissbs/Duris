@@ -1914,8 +1914,10 @@ both factions to compete at shared hotspots. One new Experience and one
 new Epic objective can start each fixed UTC hour while their own slots
 are vacant and valid zones are available. Categories cannot borrow slots.
 Experience zones follow eligible online player levels across both sides.
-Epic zones require real Epic objectives accessible to both sides. With
-no players online, at most one Epic objective waits for a future login.
+Epic zones need a loaded Epic stone and also follow online levels: a zone
+fits a player when it is rated up to five levels below or seventeen above
+them. With no players online, at most one Epic objective waits for a
+future login.
 
 Cargo uses a route drawn at random from every port pair; no player
 activity is required to create it. Buy eligible cargo or contraband at

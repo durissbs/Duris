@@ -33,7 +33,6 @@ zone_data *zone_table = zones;
 int top_of_world = 10;
 int top_of_zone_table = 4;
 hometown_data hometowns[LAST_HOME] = {};
-extern const int guild_locations[LAST_HOME + 1][CLASS_COUNT + 1] = { {}, { 132500 }, { 36329 } };
 
 std::vector<zone_info> epic_metadata;
 index_data stone_index[1] = {};
@@ -96,14 +95,6 @@ int number(int low, int high)
 {
 	++random_calls;
 	return random_value ? std::min(random_value, high) : low;
-}
-int inn(int, P_char, int, char *)
-{
-	return false;
-}
-int unsafe_room(int, P_char, int, char *)
-{
-	return false;
 }
 void logit(const char *, const char *, ...) {}
 std::string diagnostic_output;
@@ -200,18 +191,8 @@ int main()
 	assert(divine_boon_selection_bootstrap());
 	assert(divine_boon_zone_eligible(18, 0) && divine_boon_zone_eligible(18, 1));
 	assert(divine_boon_zone_eligible(20, 0));
-	rooms[0].funct = inn; // The real hometown spawn can be an ordinary inn.
-	assert(divine_boon_zone_eligible(18, 0));
-	rooms[0].funct = nullptr;
 	assert(!divine_boon_zone_eligible(999, 0));
 	assert(!divine_boon_zone_eligible(18, 2));
-	rooms[0].funct = inn; // Tharn's ordinary spawn uses the movement-safe inn.
-	assert(divine_boon_selection_bootstrap());
-	assert(divine_boon_zone_eligible(18, 0));
-	rooms[0].funct = unsafe_room;
-	assert(!divine_boon_zone_eligible(18, 0));
-	rooms[0].funct = nullptr;
-	assert(divine_boon_selection_bootstrap());
 	for (int flag : { ZONE_TOWN, ZONE_SAFE, ZONE_MAP, ZONE_CLOSED, ZONE_PRIVATE })
 	{
 		zones[2].flags = flag;
@@ -224,88 +205,38 @@ int main()
 	zones[2].reset_mode = 0;
 	assert(!divine_boon_zone_eligible(18, 0));
 	zones[2].reset_mode = 2;
-	for (ulong flag : { ROOM_LOCKER, ROOM_PRIVATE, ROOM_ARENA, ROOM_GUILD, ROOM_JAIL,
-			    ROOM_ATRIUM, ROOM_SAFE, ROOM_NO_MOB })
+	// Fighting needs at least three ordinary encounter rooms.
+	for (ulong flag : { ROOM_SAFE, ROOM_NO_MOB })
 	{
 		rooms[3].room_flags = flag;
-		assert(!divine_boon_zone_eligible(18, 0));
+		assert(!divine_boon_zone_eligible(18, 0) && !divine_boon_zone_eligible(18, 1));
 	}
 	rooms[3].room_flags = 0;
+	// No walking route from a hometown is required: locked, secret and blocked
+	// doors, water, planes and map barriers are how players reach real zones.
 	for (int flag : { EX_SECRET, EX_LOCKED, EX_BLOCKED, EX_WALLED })
 	{
-		exits[0].exit_info = flag;
-		assert(!divine_boon_zone_eligible(18, 0));
-		assert(divine_boon_zone_eligible(18, 1));
-		divine_boon_slot legacy_target;
-		legacy_target.category = divine_boon_category::experience;
-		legacy_target.zones = { 18, 20 };
+		exits[0].exit_info = exits[1].exit_info = exits[4].exit_info = flag;
+		assert(divine_boon_zone_eligible(18, 0) && divine_boon_zone_eligible(18, 1));
 		assert(divine_boon_zone_eligible(20, 0) && divine_boon_zone_eligible(20, 1));
-		assert(divine_boon_shared_target_zone(legacy_target) == 20);
 	}
-	exits[0].exit_info = EX_CLOSED; // An ordinary door can be opened.
-	assert(divine_boon_zone_eligible(18, 0));
-	divine_boon_slot old_target;
-	old_target.category = divine_boon_category::experience;
-	old_target.zones = { 18, 20 };
-	assert(divine_boon_shared_target_zone(old_target) == 18);
-	old_target.zones = { 999, 18 };
-	assert(divine_boon_shared_target_zone(old_target) == 18);
-	exits[0].exit_info = 0;
-	for (int sector :
-	     { SECT_OCEAN, SECT_UNDERWATER, SECT_FIREPLANE, SECT_LAVA, SECT_CASTLE_WALL })
-	{
-		rooms[3].sector_type = sector;
-		assert(!divine_boon_zone_eligible(18, 0));
-	}
-	// Players walk mountains and routinely carry a boat or fly.
-	for (int sector : { SECT_MOUNTAIN, SECT_UNDRWLD_MOUNTAIN, SECT_WATER_NOSWIM, SECT_NO_GROUND,
-			    SECT_UNDRWLD_NOSWIM, SECT_UNDRWLD_NOGROUND })
+	exits[0].exit_info = exits[1].exit_info = exits[4].exit_info = 0;
+	for (int sector : { SECT_OCEAN, SECT_UNDERWATER, SECT_FIREPLANE, SECT_ASTRAL, SECT_LAVA })
 	{
 		rooms[3].sector_type = sector;
 		assert(divine_boon_zone_eligible(18, 0) && divine_boon_zone_eligible(18, 1));
 	}
 	rooms[3].sector_type = SECT_FIELD;
-	// A map corridor is different from a mountain room inside a zone:
-	// normal movement cannot enter map mountains/cavern walls from the map,
-	// even with flight. Both the boot search and cached path must enforce it.
-	room_direction_data corridor_exit = {};
-	corridor_exit.to_room = 2;
-	rooms[10].dir_option[0] = &corridor_exit;
-	exits[0].to_room = exits[1].to_room = 8;
-	zones[4].flags = ZONE_MAP;
-	for (int sector : { SECT_MOUNTAIN, SECT_UNDRWLD_MOUNTAIN })
-	{
-		rooms[9].sector_type = SECT_FIELD;
-		assert(divine_boon_selection_bootstrap());
-		assert(divine_boon_zone_eligible(18, 0) && divine_boon_zone_eligible(18, 1));
-		rooms[9].sector_type = sector;
-		assert(!divine_boon_zone_eligible(18, 0) && !divine_boon_zone_eligible(18, 1));
-		assert(divine_boon_selection_bootstrap());
-		assert(!divine_boon_zone_eligible(18, 0) && !divine_boon_zone_eligible(18, 1));
-		// Authored zone/map transitions retain the movement rule's exception.
-		rooms[8].zone = 2;
-		assert(divine_boon_selection_bootstrap());
-		assert(divine_boon_zone_eligible(18, 0) && divine_boon_zone_eligible(18, 1));
-		rooms[8].zone = 4;
-		rooms[9].zone = 2;
-		assert(divine_boon_selection_bootstrap());
-		assert(divine_boon_zone_eligible(18, 0) && divine_boon_zone_eligible(18, 1));
-		rooms[9].zone = 4;
-	}
-	for (int sector :
-	     { SECT_WATER_NOSWIM, SECT_NO_GROUND, SECT_UNDRWLD_NOSWIM, SECT_UNDRWLD_NOGROUND })
-	{
-		rooms[9].sector_type = sector;
-		assert(divine_boon_selection_bootstrap());
-		assert(divine_boon_zone_eligible(18, 0) && divine_boon_zone_eligible(18, 1));
-	}
-	rooms[9].sector_type = SECT_FIELD;
-	zones[4].flags = 0;
-	exits[0].to_room = exits[1].to_room = 2;
-	rooms[10].dir_option[0] = nullptr;
-	assert(divine_boon_selection_bootstrap());
-	rooms[0].room_flags = ROOM_SAFE; // A safe hometown may lead to normal encounters.
-	assert(divine_boon_zone_eligible(18, 0));
+	// A legacy two-target objective resolves to a target eligible for both sides.
+	divine_boon_slot old_target;
+	old_target.category = divine_boon_category::experience;
+	old_target.zones = { 18, 20 };
+	assert(divine_boon_shared_target_zone(old_target) == 18);
+	zones[2].flags = ZONE_CLOSED;
+	assert(divine_boon_shared_target_zone(old_target) == 20);
+	zones[2].flags = 0;
+	old_target.zones = { 999, 18 };
+	assert(divine_boon_shared_target_zone(old_target) == 18);
 
 	// Experience objectives are one globally shared zone, even if only one
 	// racewar side is online or the sides play at very different levels.
@@ -395,18 +326,14 @@ int main()
 		assert(divine_boon_state_decode(bytes, &recovered) && recovered == retirement);
 	}
 
-	// A closed Good approach must never make a newly selected hotspot
-	// faction-specific, even though older saved boons remain shared.
+	// A closed hometown approach no longer removes a zone from selection.
 	exits[0].exit_info = EX_BLOCKED;
-	assert(divine_boon_zone_eligible(18, 1));
-	assert(!divine_boon_zone_eligible(18, 0));
 	divine_boon_state fresh;
 	assert(divine_boon_set_mode(&fresh, divine_boon_mode::draining, 0));
 	assert(divine_boon_set_mode(&fresh, divine_boon_mode::divine, 0));
-	divine_boon_select(fresh, 3600, population, &picks);
+	assert(divine_boon_select(fresh, 3600, population, &picks));
 	for (const auto &choice : picks)
-		if (choice.category == divine_boon_category::experience)
-			assert(choice.zones[0] == choice.zones[1] && choice.zones[0] != 18);
+		assert(choice.zones[0] == choice.zones[1]);
 	exits[0].exit_info = 0;
 	population[0] = {};
 	population[1].levels = { 40 };
@@ -414,8 +341,8 @@ int main()
 	assert(picks[0].category == divine_boon_category::experience);
 	assert(picks[0].zones[0] == 20 && picks[0].zones[1] == 20);
 
-	// A real payable, reachable Epic stone is mandatory: metadata alone is
-	// insufficient. The same zone must work from both hometowns.
+	// A real payable Epic stone is mandatory: metadata alone is insufficient.
+	// No hometown route is needed, and the same zone serves both sides.
 	zone_info metadata = {};
 	metadata.number = 18;
 	metadata.epic_payout = 100;
@@ -491,10 +418,15 @@ int main()
 	authority = {};
 	stone.extra2_flags = ITEM2_MAGIC;
 	std::array<divine_boon_population, 2> online = {};
-	online[0].levels = { 17 };
+	online[0].levels = { 25 };
 	assert(divine_boon_select(fresh, 7200, online, &picks));
-	// Zone 18 is already occupied by the waiting Epic objective, so the
-	// next Epic may use the other zone. Any new selected objectives still have shared IDs.
+	// Zone 18 is already occupied by the waiting Epic objective, so the next
+	// Epic uses zone 20 (rated 42, within 25+17). New objectives stay shared.
+	assert(std::any_of(picks.begin(), picks.end(),
+			   [](const auto &choice) {
+				   return choice.category == divine_boon_category::epic &&
+					  choice.zones[0] == 20;
+			   }));
 	for (const auto &choice : picks)
 		assert(choice.zones[0] == choice.zones[1]);
 
@@ -521,6 +453,40 @@ int main()
 		std::cout << "38937 objects, two shared Epic zones: selection mean_us="
 			  << elapsed.count() / 20 << std::endl;
 		object_list = &stone;
+	}
+
+	// Epic zones are rated by their 75th-percentile reset mob level (zone 18
+	// is 18, zone 20 is 42) and fit a player rated up to five levels below and
+	// seventeen above. Closed hometown approaches do not matter.
+	{
+		divine_boon_state epic_only;
+		assert(divine_boon_set_mode(&epic_only, divine_boon_mode::draining, 0));
+		assert(divine_boon_set_mode(&epic_only, divine_boon_mode::divine, 0));
+		for (int index = 0; index < 3; ++index)
+		{
+			divine_boon_slot exp; // Fill Experience so only Epic is chosen.
+			exp.category = divine_boon_category::experience;
+			exp.zones = { 100 + index, 100 + index };
+			assert(divine_boon_rotate(&epic_only, (index + 1) * 3600, &exp));
+		}
+		exits[0].exit_info = exits[1].exit_info = exits[4].exit_info = EX_LOCKED;
+		auto epic_pick = [&](int level)
+		{
+			std::array<divine_boon_population, 2> players = {};
+			players[1].levels = { static_cast<uint16_t>(level) };
+			divine_boon_select(epic_only, 4 * 3600, players, &picks);
+			for (const auto &choice : picks)
+				if (choice.category == divine_boon_category::epic)
+					return choice.zones[0];
+			return -1;
+		};
+		assert(epic_pick(23) == 18); // 18..40: zone 18 only.
+		assert(epic_pick(25) == 20); // 20..42: zone 20, seventeen above.
+		assert(epic_pick(13) == 18); // 8..30: zone 18, five above.
+		assert(epic_pick(47) == 20); // 42..64: zone 20, five below.
+		assert(epic_pick(48) == -1); // 43..65: neither.
+		assert(epic_pick(1) == 18); // -4..18: zone 18, exactly seventeen above.
+		exits[0].exit_info = exits[1].exit_info = exits[4].exit_info = 0;
 	}
 
 	// Rotation enforces dedicated capacities even if callers supply more than
@@ -641,35 +607,20 @@ int main()
 	assert(divine_boon_reward_zone_eligible(exp_zone, 1));
 	for (int index = 0; index < 10000; ++index)
 		assert(divine_boon_reward_zone_eligible(exp_zone, 1));
-	// The cached award remains shared when only one side's route closes.
-	exits[0].exit_info = EX_BLOCKED;
+	// Closed hometown approaches never withdraw an active award.
+	exits[0].exit_info = exits[1].exit_info = exits[4].exit_info = EX_BLOCKED;
 	divine_boon_selection_pulse(3604);
-	assert(divine_boon_reward_zone_eligible(exp_zone, 0) ==
-	       divine_boon_reward_zone_eligible(exp_zone, 1));
-	exits[0].exit_info = 0;
-	// Cached routes are reused; closing both cached routes rebuilds the search
-	// at once and finds the remaining detour through room 5.
-	assert(exp_zone == 18);
-	room_direction_data detour = {};
-	detour.to_room = 2;
-	rooms[5].dir_option[3] = &detour;
-	exits[0].exit_info = exits[1].exit_info = EX_BLOCKED;
-	divine_boon_selection_pulse(3610);
-	assert(divine_boon_reward_zone_eligible(exp_zone, 0));
-	// While the target stays unreachable, the full search is not repeated
-	// every second; a reopened route is found by the next allowed rebuild.
-	rooms[5].dir_option[3] = nullptr;
-	divine_boon_selection_pulse(3611);
-	assert(!divine_boon_reward_zone_eligible(exp_zone, 0));
-	exits[0].exit_info = exits[1].exit_info = 0;
-	divine_boon_selection_pulse(3612);
-	assert(!divine_boon_reward_zone_eligible(exp_zone, 0));
-	divine_boon_selection_pulse(3620);
 	assert(divine_boon_reward_zone_eligible(exp_zone, 0) &&
 	       divine_boon_reward_zone_eligible(exp_zone, 1));
-	// Epic eligibility uses the same cached routes. When an active Epic
-	// target's route closes and a detour exists, the search is rebuilt even
-	// though the active Exp target is still reachable.
+	exits[0].exit_info = exits[1].exit_info = exits[4].exit_info = 0;
+	// A closed zone does withdraw it, and reopening restores it.
+	zones[2].flags = ZONE_CLOSED;
+	divine_boon_selection_pulse(3605);
+	assert(!divine_boon_reward_zone_eligible(exp_zone, 0));
+	zones[2].flags = 0;
+	divine_boon_selection_pulse(3606);
+	assert(divine_boon_reward_zone_eligible(exp_zone, 0));
+	// An active Epic target stays payable through closed approaches too.
 	const auto before_epic = authority;
 	auto exp_slot = std::find_if(authority.slots.begin(), authority.slots.end(),
 				     [](const auto &slot)
@@ -680,15 +631,11 @@ int main()
 	epic_slot->category = divine_boon_category::epic;
 	epic_slot->zones = { 18, 18 };
 	++authority.revision;
+	exits[0].exit_info = exits[1].exit_info = exits[4].exit_info = EX_BLOCKED;
 	divine_boon_selection_pulse(3630);
-	assert(divine_boon_reward_zone_eligible(20, 0) && divine_boon_epic_zone_eligible(18, 0));
-	rooms[5].dir_option[3] = &detour;
-	exits[0].exit_info = exits[1].exit_info = EX_BLOCKED;
-	divine_boon_selection_pulse(3631);
 	assert(divine_boon_reward_zone_eligible(20, 0));
 	assert(divine_boon_epic_zone_eligible(18, 0) && divine_boon_epic_zone_eligible(18, 1));
-	rooms[5].dir_option[3] = nullptr;
-	exits[0].exit_info = exits[1].exit_info = 0;
+	exits[0].exit_info = exits[1].exit_info = exits[4].exit_info = 0;
 	authority = before_epic;
 
 	// A refused hour is not replayed after the wall clock advances.
