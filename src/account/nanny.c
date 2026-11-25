@@ -4482,11 +4482,9 @@ void nanny(P_desc d, char *arg)
 		break;
 
 	case CON_GET_NEW_ACCT_EMAIL:
-		get_new_account_email(d, arg);
-		break;
-
 	case CON_VERIFY_NEW_ACCT_EMAIL:
-		verify_new_account_email(d, arg);
+		STATE(d) = CON_GET_NEW_ACCT_PASSWD;
+		get_new_account_password(d, NULL);
 		break;
 
 	case CON_GET_NEW_ACCT_PASSWD:
@@ -4522,7 +4520,8 @@ void nanny(P_desc d, char *arg)
 		break;
 
 	case CON_ACCT_CHANGE_EMAIL:
-		get_new_account_email(d, arg);
+		STATE(d) = CON_DISPLAY_ACCT_MENU;
+		display_account_menu(d, NULL);
 		break;
 
 	case CON_ACCT_CHANGE_PASSWD:
@@ -4552,15 +4551,10 @@ void nanny(P_desc d, char *arg)
 		break;
 
 	case CON_ACCT_RESET_CODE:
-		account_recovery_enter_code(d, arg);
-		break;
-
 	case CON_ACCT_RESET_NEWPW:
-		account_recovery_new_password(d, arg);
-		break;
-
 	case CON_ACCT_RESET_NEWPW2:
-		account_recovery_verify_new_password(d, arg);
+		account_recovery_descriptor_cleanse(d);
+		send_account_password_prompt(d);
 		break;
 
 		/* Name confirm for new player */
