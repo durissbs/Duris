@@ -346,23 +346,29 @@ try
 			       (relaxed || !repeated(state, zone, now));
 		};
 
+		auto shuffle = [](std::vector<uint16_t> &draws)
+		{
+			for (size_t next = 0; next < draws.size(); ++next)
+				std::swap(draws[next],
+					  draws[number(static_cast<int>(next),
+						       static_cast<int>(draws.size()) - 1)]);
+		};
+
 		if (experience_boons < DIVINE_BOON_EXPERIENCE_SLOTS && online)
 		{
 			// Draw eligible online players' levels from either side without
 			// replacement, so one level without a fitting zone does not waste
 			// the hour. Keep the existing -5/+3 range, widening at most ten levels.
-			for (size_t next = 0; next < levels.size() && new_experience_zone < 0;
-			     ++next)
-			{
-				std::swap(levels[next],
-					  levels[number(static_cast<int>(next),
-							static_cast<int>(levels.size()) - 1)]);
-				const int level = levels[next];
-				for (int spread = 0; spread <= 10 && new_experience_zone < 0;
-				     spread += 5)
-					for (unsigned relaxed = 0;
-					     relaxed < 2 && new_experience_zone < 0; ++relaxed)
+			// A recently used zone is only taken when no level has a fresh one.
+			shuffle(levels);
+			for (unsigned relaxed = 0; relaxed < 2 && new_experience_zone < 0;
+			     ++relaxed)
+				for (size_t next = 0;
+				     next < levels.size() && new_experience_zone < 0; ++next)
+					for (int spread = 0;
+					     spread <= 10 && new_experience_zone < 0; spread += 5)
 					{
+						const int level = levels[next];
 						unsigned count = 0;
 						for (size_t index = 0; index < catalogue.size();
 						     ++index)
@@ -388,7 +394,6 @@ try
 									relaxed;
 							}
 					}
-			}
 			if (new_experience_zone >= 0)
 			{
 				divine_boon_slot exp;
@@ -398,34 +403,33 @@ try
 			}
 		}
 
-		// On a quiet server retain at most one waiting Epic objective, as
-		// before. Otherwise replenish its own reserved capacity each hour.
-		if (epic_boons < DIVINE_BOON_EPIC_SLOTS && (online || epic_boons == 0))
+		// With nobody online, accounts active in the last 15 minutes choose
+		// the level, and at most one Epic objective waits for them. With
+		// neither, no Epic objective is made, so none waits at a random level.
+		std::vector<uint16_t> epic_levels = levels;
+		if (!online)
+			for (const auto &side : population)
+				epic_levels.insert(epic_levels.end(), side.recent_levels.begin(),
+						   side.recent_levels.end());
+		if (epic_boons < DIVINE_BOON_EPIC_SLOTS && !epic_levels.empty() &&
+		    (online || epic_boons == 0))
 		{
 			std::optional<epic_stone_locations> stones;
 			std::vector<size_t> live;
 			for (size_t index = 0; index < catalogue.size(); ++index)
 				if (epic_target(catalogue[index], &stones))
 					live.push_back(index);
-			// Like Experience, draw online players' levels without replacement.
-			// A zone rated L-5 to L+17 fits a player of level L, so groups see
-			// zones somewhat above their level too. A quiet server takes any zone.
+			// Like Experience, draw levels without replacement. A zone rated L-5
+			// to L+17 fits level L, so groups also see zones above their level.
+			// A recently used zone is only taken when no level has a fresh one.
+			shuffle(epic_levels);
 			int selected = -1;
-			for (size_t next = 0;
-			     next < std::max<size_t>(levels.size(), 1) && selected < 0; ++next)
-			{
-				int low = 0, high = MAXLVL;
-				if (online)
+			for (unsigned relaxed = 0; relaxed < 2 && selected < 0; ++relaxed)
+				for (size_t next = 0; next < epic_levels.size() && selected < 0;
+				     ++next)
 				{
-					std::swap(
-						levels[next],
-						levels[number(static_cast<int>(next),
-							      static_cast<int>(levels.size()) - 1)]);
-					low = levels[next] - epic_levels_below;
-					high = levels[next] + epic_levels_above;
-				}
-				for (unsigned relaxed = 0; relaxed < 2 && selected < 0; ++relaxed)
-				{
+					const int low = epic_levels[next] - epic_levels_below;
+					const int high = epic_levels[next] + epic_levels_above;
 					unsigned count = 0;
 					for (size_t index : live)
 						if (catalogue[index].level >= low &&
@@ -439,7 +443,6 @@ try
 							diagnostic->epic_relaxed[side] = relaxed;
 						}
 				}
-			}
 			if (selected >= 0)
 			{
 				divine_boon_slot epic;

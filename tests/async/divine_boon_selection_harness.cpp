@@ -374,8 +374,15 @@ int main()
 	assert(!divine_boon_epic_zone_eligible(18, 1));
 	stone_zone = 2;
 
-	// One Epic objective is allowed on a quiet server, not three idle ones.
+	// An empty server with nobody active recently makes no Epic objective.
 	std::array<divine_boon_population, 2> quiet_players = {};
+	divine_boon_selection_diagnostic quiet_report;
+	divine_boon_select(fresh, 3600, quiet_players, &picks, &quiet_report);
+	for (const auto &choice : picks)
+		assert(choice.category != divine_boon_category::epic);
+	// A player active in the last 15 minutes chooses the level of the one Epic
+	// objective allowed to wait on an empty server, not three idle ones.
+	quiet_players[1].recent_levels = { 17 };
 	assert(divine_boon_select(fresh, 3600, quiet_players, &picks));
 	assert(picks.size() == 1 && picks[0].category == divine_boon_category::epic);
 	assert(picks[0].zones == (std::array<int32_t, 2>{ 18, 18 }));
@@ -487,6 +494,51 @@ int main()
 		assert(epic_pick(48) == -1); // 43..65: neither.
 		assert(epic_pick(1) == 18); // -4..18: zone 18, exactly seventeen above.
 		exits[0].exit_info = exits[1].exit_info = exits[4].exit_info = 0;
+	}
+
+	// A recently used zone is taken only when no drawn level has a fresh one,
+	// whichever level is drawn first (levels 13 then 30 or 40, random_value 0).
+	{
+		divine_boon_state used;
+		assert(divine_boon_set_mode(&used, divine_boon_mode::draining, 0));
+		assert(divine_boon_set_mode(&used, divine_boon_mode::divine, 0));
+		divine_boon_slot old_epic;
+		old_epic.category = divine_boon_category::epic;
+		old_epic.zones = { 18, 18 };
+		divine_boon_slot old_exp = old_epic;
+		old_exp.category = divine_boon_category::experience;
+		assert(divine_boon_rotate(&used, 3600, &old_epic)); // Expires at 9h.
+		for (int hour = 2; hour <= 5; ++hour)
+			assert(divine_boon_rotate(&used, hour * 3600, nullptr, 0));
+		for (int index = 0; index < 3; ++index)
+		{
+			divine_boon_slot exp; // Keep Experience full for the Epic case.
+			exp.category = divine_boon_category::experience;
+			exp.zones = { 100 + index, 100 + index };
+			assert(divine_boon_rotate(&used, (index + 6) * 3600, &exp));
+		}
+		assert(divine_boon_rotate(&used, 9 * 3600, nullptr, 0));
+		std::array<divine_boon_population, 2> players = {};
+		players[0].levels = { 13 }; // Fits only zone 18, used within 12 hours.
+		players[1].levels = { 30 }; // Fits only zone 20 (rated 42), unused.
+		random_value = 0;
+		assert(divine_boon_select(used, 10 * 3600, players, &picks));
+		assert(picks.size() == 1 && picks[0].category == divine_boon_category::epic &&
+		       picks[0].zones[0] == 20);
+		players[1].levels = {}; // Only the repeat fits: it is still taken.
+		assert(divine_boon_select(used, 10 * 3600, players, &picks));
+		assert(picks.size() == 1 && picks[0].zones[0] == 18);
+
+		divine_boon_state exp_used;
+		assert(divine_boon_set_mode(&exp_used, divine_boon_mode::draining, 0));
+		assert(divine_boon_set_mode(&exp_used, divine_boon_mode::divine, 0));
+		assert(divine_boon_rotate(&exp_used, 3600, &old_exp)); // Expires at 9h.
+		for (int hour = 2; hour <= 9; ++hour)
+			assert(divine_boon_rotate(&exp_used, hour * 3600, nullptr, 0));
+		players[1].levels = { 40 }; // Experience: 13 fits zone 18, 40 fits zone 20.
+		assert(divine_boon_select(exp_used, 10 * 3600, players, &picks));
+		assert(picks[0].category == divine_boon_category::experience &&
+		       picks[0].zones[0] == 20);
 	}
 
 	// Rotation enforces dedicated capacities even if callers supply more than

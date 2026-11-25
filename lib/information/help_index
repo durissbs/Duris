@@ -1916,8 +1916,8 @@ are vacant and valid zones are available. Categories cannot borrow slots.
 Experience zones follow eligible online player levels across both sides.
 Epic zones need a loaded Epic stone and also follow online levels: a zone
 fits a player when it is rated up to five levels below or seventeen above
-them. With no players online, at most one Epic objective waits for a
-future login.
+them. With no players online, at most one Epic objective waits, set for
+players active in the last 15 minutes; if there were none, none waits.
 
 Cargo uses a route drawn at random from every port pair; no player
 activity is required to create it. Buy eligible cargo or contraband at
