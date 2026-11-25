@@ -31,6 +31,7 @@
 #include "core/utils.h"
 #include "net/comm.h"
 #include "account/account.h"
+#include "account/creation_availability_config.h"
 #include "classes/epic_skills.h"
 #include "core/files.h"
 #include "core/utility.h"
@@ -52,7 +53,6 @@
 #include <string>
 #include <vector>
 
-extern int class_table[LAST_RACE + 1][CLASS_COUNT + 1];
 extern struct race_names race_names_table[];
 extern struct class_names class_names_table[];
 extern epic_reward epic_rewards[];
@@ -161,7 +161,7 @@ int race_side(int race)
 
 bool class_allowed(int race, unsigned int m_class)
 {
-	return !m_class || class_table[race][flag2idx(m_class)] != 5;
+	return !m_class || creation_class_normally_available(race, flag2idx(m_class));
 }
 
 void tell(const sideswap_request &request, const std::string &text)
@@ -317,7 +317,7 @@ std::string check_plan(sideswap_request &request)
 
 		target.refund_points = target.refund_coins = 0;
 		target.refund_skills.clear();
-		if (request.epics && target.new_class != ch->player.m_class)
+		if (request.epics)
 			for (int skill = FIRST_SKILL; skill <= LAST_SKILL; ++skill)
 			{
 				int points, coins;
@@ -662,11 +662,16 @@ void account_loaded(const std::shared_ptr<sideswap_request> &request, bool ok, P
 			     entry = entry->next)
 				if (!strcasecmp(entry->charname, target.name.c_str()))
 					target.pid = entry->pid;
+		std::set<int> listed_pids;
 		for (const sideswap_target &target : request->targets)
 			if (!target.pid)
 				problems += target.name + " is not on that account.\r\n";
+			else if (!listed_pids.insert(target.pid).second)
+				problems += target.name + " is listed more than once.\r\n";
+		size_t character_count = 0;
 		for (acct_chars *entry = account->acct_character_list; entry; entry = entry->next)
 		{
+			++character_count;
 			bool listed = false;
 			for (const sideswap_target &target : request->targets)
 				listed |= target.pid == entry->pid;
@@ -678,6 +683,8 @@ void account_loaded(const std::shared_ptr<sideswap_request> &request, bool ok, P
 				 player_load_pipeline_pid_pending(entry->pid))
 				problems += std::string(entry->charname) + " is in the game.\r\n";
 		}
+		if (request->targets.size() != character_count)
+			problems += "List every account character exactly once.\r\n";
 	}
 	if (account)
 		free_account(account);
@@ -796,11 +803,17 @@ void do_sideswap(P_char ch, char *argument, int /*cmd*/)
 				*cls++ = '\0';
 			sideswap_target target;
 			target.name = word;
+			for (const sideswap_target &other : request->targets)
+				if (!strcasecmp(other.name.c_str(), target.name.c_str()))
+				{
+					send_to_char_f(ch, "%s is listed more than once.\r\n", word);
+					return;
+				}
 			target.race = find_race(race);
 			if (target.race <= 0 || target.race > LAST_RACE ||
-			    race_side(target.race) == RACEWAR_NONE)
+			    race_side(target.race) == RACEWAR_NONE || !creation_race_enabled(target.race))
 			{
-				send_to_char_f(ch, "%s is not one playable race.\r\n", race);
+				send_to_char_f(ch, "%s is not one enabled playable race.\r\n", race);
 				return;
 			}
 			if (cls && !(target.m_class = find_class(cls)))

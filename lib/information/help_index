@@ -1914,8 +1914,10 @@ both factions to compete at shared hotspots. One new Experience and one
 new Epic objective can start each fixed UTC hour while their own slots
 are vacant and valid zones are available. Categories cannot borrow slots.
 Experience zones follow eligible online player levels across both sides.
-Epic zones require real Epic objectives accessible to both sides. With
-no players online, at most one Epic objective waits for a future login.
+Epic zones need a loaded Epic stone and also follow online levels: a zone
+fits a player when it is rated up to five levels below or seventeen above
+them. With no players online, at most one Epic objective waits, set for
+players active in the last 15 minutes; if there were none, none waits.
 
 Cargo uses a route drawn at random from every port pair; no player
 activity is required to create it. Buy eligible cargo or contraband at
@@ -23054,7 +23056,7 @@ Without an option, what it covers stays behind or is reset:
            go to the old side's bank, and the bank stays there)
   +eq      equipment and inventory go along, moved to inventory to be worn
            again (otherwise they are destroyed)
-  +epics   epic points and epic skills go along; epic skills a new class
+  +epics   epic points and epic skills go along; epic skills the new race or class
            cannot use are refunded, the epic points to the character and the
            coins to the new side's bank (otherwise all are reset)
   +artis   artifacts go along (otherwise they return to the world)

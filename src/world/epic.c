@@ -2296,6 +2296,12 @@ bool epic_skill_refund_value(P_char ch, int skl, int *points, int *coins)
 		*points += cost_multiplier * epic_rewards[er_skl].points_cost * 3;
 		*coins += cost_multiplier * epic_rewards[er_skl].coins * 2;
 	}
+	if (IS_MULTICLASS_PC(ch) && !IS_SET(epic_rewards[er_skl].classes, ch->player.m_class) &&
+	    IS_SET(epic_rewards[er_skl].classes, ch->player.secondary_class))
+	{
+		*points *= (int)get_property("epic.multiclass.EpicSkillCost", 2);
+		*coins *= (int)get_property("epic.multiclass.EpicPlatCost", 3);
+	}
 	return true;
 }
 

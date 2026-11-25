@@ -111,6 +111,16 @@ def run(binary):
                 god.send(f"sideswap {ACCOUNT} {FIRST}=human {SECOND}=drow")
                 god.expect("Human is not an evil race.", timeout=30)
 
+                # Duplicate names must be refused before any offline copy is loaded.
+                god.send(f"sideswap {ACCOUNT} {FIRST}=drow {FIRST.lower()}=drow "
+                         f"{SECOND}=orc confirm")
+                god.expect("is listed more than once.", timeout=30)
+                assert sql(f"SELECT bank_platinum FROM account_banks WHERE "
+                           f"account_name='{ACCOUNT}' AND racewar=1") == "25"
+                assert sql(f"SELECT platinum FROM player_data WHERE name='{FIRST}'") == "7"
+                assert sql(f"SELECT GROUP_CONCAT(racewar ORDER BY name) FROM player_data "
+                           f"WHERE name IN ('{FIRST}','{SECOND}')") == "1,1"
+
                 # Good to evil, taking money, locker and equipment along.
                 swap = f"sideswap {ACCOUNT} {FIRST}=drow {SECOND}=orc +money +locker +eq"
                 god.send(swap)
