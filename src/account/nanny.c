@@ -4460,7 +4460,7 @@ void nanny(P_desc d, char *arg)
 	case CON_GET_ACCT_PASSWD:
 		get_account_password(d, arg);
 		break;
-		case CON_CONFIRM_ACCT:
+	case CON_CONFIRM_ACCT:
 		STATE(d) = CON_FLUSH;
 		break;
 
