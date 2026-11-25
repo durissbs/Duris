@@ -2670,7 +2670,7 @@ void bulk_drop_object(P_char actor, P_obj object, bulk_drop_state &state)
 	const int room = actor->in_room;
 
 	obj_from_char(object);
-	obj_to_room(object, room);
+	obj_to_room_dropped(object, room);
 	++state.total;
 	/* obj_to_room merges coins into a pile already on the floor and frees the
 	 * object it merged, so nothing below may touch a money object again. */
@@ -3394,7 +3394,10 @@ void do_drop(P_char ch, char *argument, int cmd)
 						      obj_index[tmp_object->R_num].virtual_number,
 						      world[ch->in_room].number);
 					}
-					obj_to_room(tmp_object, ch->in_room);
+					if (IS_PC(ch))
+						obj_to_room_dropped(tmp_object, ch->in_room);
+					else
+						obj_to_room(tmp_object, ch->in_room);
 					if (IS_PC(ch) && tmp_object->obj_uid > 0)
 						redis_log_floor_drop(tmp_object,
 								     world[ch->in_room].number);
@@ -3476,7 +3479,10 @@ void do_drop(P_char ch, char *argument, int cmd)
 						      obj_index[tmp_object->R_num].virtual_number,
 						      world[ch->in_room].number);
 					}
-					obj_to_room(tmp_object, ch->in_room);
+					if (IS_PC(ch))
+						obj_to_room_dropped(tmp_object, ch->in_room);
+					else
+						obj_to_room(tmp_object, ch->in_room);
 
 					if (IS_PC(ch))
 					{
