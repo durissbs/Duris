@@ -746,8 +746,9 @@ void get_account_password(P_desc d, char *arg)
 	/* A lone '?' directs locked-out players to staff without counting a password guess. */
 	if (arg[0] == '?' && arg[1 + strspn(arg + 1, " \t\r\n")] == '\0')
 	{
-		SEND_TO_Q("\r\nPassword reset by email is not available on this server. Please contact staff.\r\n",
-			  d);
+		SEND_TO_Q(
+			"\r\nPassword reset by email is not available on this server. Please contact staff.\r\n",
+			d);
 		send_account_password_prompt(d);
 		return;
 	}
