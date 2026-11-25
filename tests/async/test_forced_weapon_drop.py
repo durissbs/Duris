@@ -63,6 +63,11 @@ void obj_to_room(P_obj object, int room)
     object->loc.room = room;
 }
 
+P_obj find_live_object(P_obj object, uint64_t uid)
+{
+    return object && object->obj_uid == uid ? object : nullptr;
+}
+
 void obj_to_room_dropped(P_obj object, int room)
 {
     obj_to_room(object, room);
