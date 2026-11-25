@@ -1,0 +1,26 @@
+name: PR 34 formatting preview
+on:
+  push:
+    branches: [ci/pr34-format-preview]
+permissions:
+  contents: read
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Produce exact formatting patch
+        shell: bash
+        run: |
+          command -v clang-format || { sudo apt-get update && sudo apt-get install -y clang-format; }
+          for pass in 1 2 3 4 5; do
+            clang-format --style=file -i src/account/wiz_sideswap.c
+            if clang-format --style=file --dry-run --Werror src/account/wiz_sideswap.c; then break; fi
+          done
+          clang-format --style=file --dry-run --Werror src/account/wiz_sideswap.c
+          echo 'FORMAT_PATCH_START'
+          git diff --no-color -- src/account/wiz_sideswap.c
+          echo 'FORMAT_PATCH_END'
