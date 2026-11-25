@@ -495,10 +495,7 @@ void send_account_name_prompt(P_desc d)
 
 void send_account_password_prompt(P_desc d)
 {
-	SEND_TO_Q(account_recovery_enabled() ?
-			  "Please enter your password (or ? to reset it by email): " :
-			  "Please enter your password: ",
-		  d);
+	SEND_TO_Q("Please enter your password: ", d);
 	echo_off(d);
 	STATE(d) = CON_GET_ACCT_PASSWD;
 }
@@ -869,7 +866,6 @@ void display_account_menu(P_desc d, char *arg)
 		SEND_TO_Q("&+R3) Delete a character&n\r\n", d);
 		SEND_TO_Q("\r\n", d);
 		SEND_TO_Q("&+C4) Display account information&n\r\n", d);
-		SEND_TO_Q("&+Y5) Change registered email address&n\r\n", d);
 		SEND_TO_Q("&+Y6) Change account password&n\r\n", d);
 		SEND_TO_Q("&+R7) Delete this account&n\r\n", d);
 		SEND_TO_Q("&+C8) Check rested bonus&n\r\n", d);
@@ -925,11 +921,6 @@ void display_account_menu(P_desc d, char *arg)
 	case 4:
 		STATE(d) = CON_ACCT_DISPLAY_INFO;
 		account_display_info(d, NULL);
-		break;
-
-	case 5:
-		STATE(d) = CON_ACCT_CHANGE_EMAIL;
-		get_new_account_email(d, NULL);
 		break;
 
 	case 6:
@@ -1042,8 +1033,8 @@ void verify_account_name(P_desc d, char *arg)
 	if ((arg[0] == 'y') || (arg[0] == 'Y'))
 	{
 		SEND_TO_Q("Confirmed...\r\n", d);
-		STATE(d) = CON_GET_NEW_ACCT_EMAIL;
-		get_new_account_email(d, NULL);
+		STATE(d) = CON_GET_NEW_ACCT_PASSWD;
+		get_new_account_password(d, NULL);
 		return;
 	}
 	else if ((arg[0] == 'n') || (arg[0] == 'N'))
@@ -1266,7 +1257,7 @@ void account_create(P_desc d, std::function<void(P_desc, bool)> done)
 	P_acct account = d->account;
 	if (!account || !account->acct_name || !account->acct_password || !*account->acct_password)
 		return done(d, false);
-	// A registration address is only a challenge destination, even when mail is off.
+	// Keep the legacy in-memory field empty until recovery code is removed.
 	if (account->acct_email)
 		FREE(account->acct_email);
 	account->acct_email = str_dup("");
@@ -1274,7 +1265,7 @@ void account_create(P_desc d, std::function<void(P_desc, bool)> done)
 	const std::string name = escape_str(account->acct_name);
 	const std::string password = account->acct_password;
 	const std::string insert = sql_format(
-		"INSERT INTO accounts(account_name,password,email,confirmed) VALUES('%s','%s','',1)",
+		"INSERT INTO accounts(account_name,password,confirmed) VALUES('%s','%s',1)",
 		name.c_str(), escape_str(password.c_str()).c_str());
 	const auto inserted = std::make_shared<bool>(false);
 	const auto request = wait_for_writer(d);
@@ -1333,11 +1324,9 @@ void verify_new_account_information(P_desc d, char *arg)
 	}
 	if ((arg[0] == 'y') || (arg[0] == 'Y'))
 	{
-		const std::string requested_email =
-			d->account->acct_email ? d->account->acct_email : "";
 		account_create(
 			d,
-			[requested_email](P_desc reader, bool ok)
+			[](P_desc reader, bool ok)
 			{
 				if (!ok)
 				{
@@ -1349,18 +1338,9 @@ void verify_new_account_information(P_desc d, char *arg)
 					return;
 				}
 				SEND_TO_Q("Account created successfully!\r\n", reader);
-				if (account_recovery_enabled())
-					begin_account_email_verification(reader,
-									 requested_email.c_str());
-				else
-				{
-					SEND_TO_Q(
-						"Email verification is unavailable; no recovery address was saved.\r\n",
-						reader);
-					display_account_login_pages(reader);
-					update_account_iplist(reader);
-					STATE(reader) = CON_ACCT_RMOTD;
-				}
+				display_account_login_pages(reader);
+				update_account_iplist(reader);
+				STATE(reader) = CON_ACCT_RMOTD;
 			});
 		return;
 	}
@@ -3456,8 +3436,6 @@ void display_account_information(P_desc d, P_acct account)
 		account = d->account;
 
 	snprintf(buffer, 4096, "Account Name:              %s\r\n", account->acct_name);
-	SEND_TO_Q(buffer, d);
-	snprintf(buffer, 4096, "Email Address:             %s\r\n", account->acct_email);
 	SEND_TO_Q(buffer, d);
 }
 
