@@ -743,11 +743,12 @@ void get_account_password(P_desc d, char *arg)
 		return;
 	}
 
-	/* A lone '?' (trailing whitespace tolerated) asks for a reset by email; it is not
-	 * a password guess.  Every other input reaches the password check untrimmed. */
+	/* A lone '?' directs locked-out players to staff without counting a password guess. */
 	if (arg[0] == '?' && arg[1 + strspn(arg + 1, " \t\r\n")] == '\0')
 	{
-		account_recovery_begin_from_password_prompt(d);
+		SEND_TO_Q("\r\nPassword reset by email is not available on this server. Please contact staff.\r\n",
+			  d);
+		send_account_password_prompt(d);
 		return;
 	}
 
@@ -944,74 +945,6 @@ void display_account_menu(P_desc d, char *arg)
 	}
 }
 
-/* The account menu and registration use the same inbox-only challenge. */
-static void begin_account_email_verification(P_desc d, const char *email)
-{
-	const auto outcome = account_email_request(d->account, email, d->host);
-	if (outcome == account_recovery_request_outcome::queued ||
-	    outcome == account_recovery_request_outcome::suppressed)
-	{
-		SEND_TO_Q(
-			"\r\nCheck your inbox for a verification code. Your registered email stays unchanged\r\n"
-			"until you enter it. Codes expire in 15 minutes and at restart; requests are limited\r\n"
-			"to one every 10 minutes. Check spam, or contact staff if delivery fails.\r\n",
-			d);
-		STATE(d) = CON_CONFIRM_ACCT;
-		confirm_account(d, NULL);
-		return;
-	}
-	SEND_TO_Q(
-		outcome == account_recovery_request_outcome::disabled ?
-			"\r\nEmail verification is unavailable. Please contact staff.\r\n" :
-			"\r\nUnable to send a verification code now. Please try again later or contact staff.\r\n",
-		d);
-	STATE(d) = CON_DISPLAY_ACCT_MENU;
-	display_account_menu(d, NULL);
-}
-
-void confirm_account(P_desc d, char *arg)
-{
-	if (!arg)
-	{
-		echo_off(d);
-		SEND_TO_Q("Enter the email verification code (or CANCEL): ", d);
-		return;
-	}
-	if (!strcasecmp(arg, "CANCEL"))
-	{
-		echo_on(d);
-		STATE(d) = CON_DISPLAY_ACCT_MENU;
-		display_account_menu(d, NULL);
-		return;
-	}
-	account_email_complete(
-		d, arg,
-		[](P_desc reader, account_recovery_complete_outcome outcome)
-		{
-			if (!reader)
-				return;
-			if (outcome == account_recovery_complete_outcome::ok)
-			{
-				echo_on(reader);
-				reader->account_recovery_attempts = 0;
-				SEND_TO_Q(
-					"\r\nEmail verified and saved. You can now recover your password with this inbox.\r\n",
-					reader);
-				STATE(reader) = CON_DISPLAY_ACCT_MENU;
-				display_account_menu(reader, NULL);
-				return;
-			}
-			SEND_TO_Q(
-				outcome == account_recovery_complete_outcome::write_failed ||
-						outcome == account_recovery_complete_outcome::
-								   load_failed ?
-					"\r\nYour email could not be saved. Please retry with the same code.\r\n" :
-					"\r\nInvalid or expired email verification code.\r\n",
-				reader);
-			confirm_account(reader, NULL);
-		});
-}
-
 void verify_account_name(P_desc d, char *arg)
 {
 	if (pwipe_launch_closed_at(time(NULL)))
@@ -1049,98 +982,6 @@ void verify_account_name(P_desc d, char *arg)
 	{
 		SEND_TO_Q("Invalid choice...\r\n", d);
 		verify_account_name(d, NULL);
-	}
-}
-
-void get_new_account_email(P_desc d, char *arg)
-{
-	if (!arg)
-	{
-		SEND_TO_Q("\r\nPlease enter your email address:  ", d);
-		return;
-	}
-	for (; isspace(*arg); arg++)
-		;
-
-	// Validate email format
-	if (!is_valid_email(arg))
-	{
-		SEND_TO_Q("\r\n&+RInvalid email format.&n Please enter a valid email address.\r\n",
-			  d);
-		SEND_TO_Q("Email address:  ", d);
-		return;
-	}
-
-	if (is_email_taken(arg) &&
-	    (!d->account->acct_email || strcasecmp(arg, d->account->acct_email)))
-	{
-		SEND_TO_Q(
-			"\r\n&+REmail already in use. &+WOnly one account per user please.&n If you are a new user please try a different email.\r\n",
-			d);
-		SEND_TO_Q("Email address:  ", d);
-		return;
-	}
-
-	if (STATE(d) == CON_ACCT_CHANGE_EMAIL)
-	{
-		begin_account_email_verification(d, arg);
-		return;
-	}
-	if (d->account->acct_email)
-		FREE(d->account->acct_email);
-	d->account->acct_email = str_dup(arg);
-	STATE(d) = CON_VERIFY_NEW_ACCT_EMAIL;
-	verify_new_account_email(d, NULL);
-	return;
-}
-
-void verify_new_account_email(P_desc d, char *arg)
-{
-	char buf[1024];
-
-	if (!arg)
-	{
-		snprintf(buf, 1024, "\r\nYou entered %s, is this correct?  (Y/N)",
-			 d->account->acct_email);
-		SEND_TO_Q(buf, d);
-		return;
-	}
-	if ((arg[0] == 'y') || (arg[0] == 'Y'))
-	{
-		SEND_TO_Q("Confirmed...\r\n", d);
-		if (d->account->acct_confirmed == 0)
-		{
-			STATE(d) = CON_GET_NEW_ACCT_PASSWD;
-			get_new_account_password(d, NULL);
-		}
-		else
-		{
-			STATE(d) = CON_DISPLAY_ACCT_MENU;
-			display_account_menu(d, NULL);
-			if (-1 == write_account(d->account))
-			{
-				statuslog(56, "&+RALERT&n: existing confirmed account save failed");
-				persistence_alert(AVATAR, "account", "redacted", "none", "none",
-						  "write_failed", "post-login menu save failed");
-			}
-			else
-				account_recovery_invalidate(d->account->acct_name);
-		}
-		return;
-	}
-	else if ((arg[0] == 'n') || (arg[0] == 'N'))
-	{
-		SEND_TO_Q("Ok, what then?\r\n", d);
-		FREE(d->account->acct_email);
-		d->account->acct_email = NULL;
-		STATE(d) = CON_GET_NEW_ACCT_EMAIL;
-		get_new_account_email(d, NULL);
-		return;
-	}
-	else
-	{
-		SEND_TO_Q("Invalid choice...\r\n", d);
-		verify_new_account_email(d, NULL);
 	}
 }
 
