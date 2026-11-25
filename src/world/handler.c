@@ -2779,9 +2779,93 @@ P_char get_char_num(int nr)
 	return (0);
 }
 
+namespace
+{
+struct water_drop_event
+{
+	int room;
+	bool warning;
+};
+
+bool delayed_water_drop_eligible(P_obj object, int room)
+{
+	if (!IS_WATER_ROOM(room) || world[room].sector_type == SECT_UNDERWATER ||
+	    world[room].sector_type == SECT_UNDERWATER_GR ||
+	    world[room].sector_type == SECT_WATER_PLANE || object->z_cord != 0 ||
+	    IS_SET(object->extra_flags, ITEM_FLOAT) ||
+	    IS_SET(object->extra_flags, ITEM_TRANSIENT) || IS_ARTIFACT(object) ||
+	    object->type == ITEM_BOAT || object->type == ITEM_SHIP ||
+	    object->type == ITEM_MONEY || object->type == ITEM_CORPSE)
+		return false;
+
+	// Only delay objects which the existing water rule sends to Poseidon's vault.
+	return (object->type >= ITEM_SCROLL && object->type <= ITEM_WORN) ||
+	       object->type == ITEM_CONTAINER ||
+	       (object->type >= ITEM_QUIVER && object->type <= ITEM_TOTEM) ||
+	       object->type == ITEM_SHIELD;
+}
+
+void announce_water_drop(P_obj object, int room, const char *message)
+{
+	for (P_char viewer = world[room].people; viewer; viewer = viewer->next_in_room)
+		if (CAN_SEE_OBJ(viewer, object))
+			act(message, TRUE, viewer, object, 0, TO_CHAR);
+}
+
+void event_water_drop(P_char, P_char, P_obj object, void *data)
+{
+	const water_drop_event state = *static_cast<const water_drop_event *>(data);
+	if (!object || !OBJ_ROOM(object) || object->loc.room != state.room ||
+	    !delayed_water_drop_eligible(object, state.room))
+		return;
+
+	if (state.warning)
+	{
+		announce_water_drop(object, state.room, "$p begins to slowly sink beneath the water.");
+		return;
+	}
+
+	const int destination = real_room(31724);
+	if (destination < 0 || destination > top_of_world || destination == state.room)
+	{
+		logit(LOG_SYS, "Delayed water drop: invalid sinking destination");
+		return;
+	}
+
+	announce_water_drop(object, state.room,
+			    "$p disappears beneath the surface and is swept away in the current!");
+	const uint64_t uid = object->obj_uid;
+	obj_from_room(object);
+	if (!OBJ_NOWHERE(object))
+		return;
+	obj_to_room(object, destination);
+	// Placement may extract an object. Never dereference a retired pointer.
+	if (P_obj moved = find_live_object(object, uid); moved && uid && OBJ_ROOM(moved))
+	{
+		redis_remove_floor_drop(uid);
+		redis_log_floor_drop(moved, world[moved->loc.room].number);
+	}
+}
+
+bool arm_water_drop(P_obj object, int room)
+{
+	// Four scheduler pulses per second. Arm the final event first so a failed
+	// warning cannot strand an item at the surface.
+	water_drop_event state = { room, false };
+	if (!add_event(event_water_drop, 90 * 4, nullptr, nullptr, object, 0, &state,
+		       sizeof(state)))
+		return false;
+	state.warning = true;
+	if (!add_event(event_water_drop, 60 * 4, nullptr, nullptr, object, 0, &state,
+		       sizeof(state)))
+		logit(LOG_SYS, "Delayed water drop: could not arm sinking warning");
+	return true;
+}
+} // namespace
+
 /* put an object in a room */
 
-void obj_to_room(P_obj object, int room)
+static void obj_to_room_impl(P_obj object, int room, bool dropped)
 {
 	P_char i;
 	P_obj o;
@@ -2798,7 +2882,9 @@ void obj_to_room(P_obj object, int room)
 		return;
 	}
 
-	if (IS_WATER_ROOM(room) && !IS_SET(object->extra_flags, ITEM_FLOAT) &&
+	const bool delayed = dropped && delayed_water_drop_eligible(object, room) &&
+			     arm_water_drop(object, room);
+	if (!delayed && IS_WATER_ROOM(room) && !IS_SET(object->extra_flags, ITEM_FLOAT) &&
 	    (object->type != ITEM_BOAT) && (object->type != ITEM_SHIP) &&
 	    (world[room].sector_type != SECT_UNDERWATER_GR) &&
 	    /*(world[room].sector_type != SECT_WATER_PLANE) && */
@@ -2907,11 +2993,23 @@ void obj_to_room(P_obj object, int room)
 	if (object && (object->type == ITEM_CORPSE) && IS_SET(object->value[1], PC_CORPSE))
 		writeCorpse(object);
 
-	if (OBJ_FALLING(object))
+	if (delayed)
+		announce_water_drop(object, room, "$p bobs on the surface of the water.");
+	else if (OBJ_FALLING(object))
 	{
 		falling_obj(object, 1, false);
 	}
 	artifact_update_location_sql(object);
+}
+
+void obj_to_room(P_obj object, int room)
+{
+	obj_to_room_impl(object, room, false);
+}
+
+void obj_to_room_dropped(P_obj object, int room)
+{
+	obj_to_room_impl(object, room, true);
 }
 
 /*
@@ -2963,6 +3061,7 @@ void obj_from_room(P_obj object)
 	    ((object->type == ITEM_LIGHT) && (object->value[2] == -1)))
 		room_light(object->loc.room, REAL);
 
+	disarm_obj_nevents(object, event_water_drop);
 	object->loc_p = LOC_NOWHERE;
 	object->loc.room = NOWHERE;
 	object->next_content = NULL;
