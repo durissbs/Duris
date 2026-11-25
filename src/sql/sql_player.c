@@ -973,7 +973,6 @@ bool sql_save_account(struct acct_entry *acc)
 		return false;
 
 	const std::string name = escape_str(acc->acct_name);
-	const std::string email = escape_str(acc->acct_email ? acc->acct_email : "");
 	const std::string password = escape_str(acc->acct_password ? acc->acct_password : "");
 	const std::string confirmation =
 		escape_str(acc->acct_confirmation ? acc->acct_confirmation : "");
@@ -981,16 +980,16 @@ bool sql_save_account(struct acct_entry *acc)
 	// A queued capture may outlive its owner deletion. Refuse to resurrect
 	// the ship; dependent row writes then fail in the same writer transaction.
 	statements.push_back(sql_format(
-		"insert into accounts (account_name, email, password, confirmation_code, "
+		"insert into accounts (account_name, password, confirmation_code, "
 		"confirmed, confirmation_sent, blocked, last_login, last_good_char, last_evil_char, "
-		"flags1, flags2, flags3, flags4) values ('%s', '%s', '%s', '%s', %d, %d, %d, FROM_UNIXTIME(NULLIF(%ld,0)), FROM_UNIXTIME(NULLIF(%ld,0)), FROM_UNIXTIME(NULLIF(%ld,0)), %lu, %lu, %lu, %lu) "
-		"on duplicate key update email='%s', password='%s', confirmation_code='%s', "
+		"flags1, flags2, flags3, flags4) values ('%s', '%s', '%s', %d, %d, %d, FROM_UNIXTIME(NULLIF(%ld,0)), FROM_UNIXTIME(NULLIF(%ld,0)), FROM_UNIXTIME(NULLIF(%ld,0)), %lu, %lu, %lu, %lu) "
+		"on duplicate key update password='%s', confirmation_code='%s', "
 		"confirmed=%d, confirmation_sent=%d, blocked=%d, last_login=FROM_UNIXTIME(NULLIF(%ld,0)), last_good_char=FROM_UNIXTIME(NULLIF(%ld,0)), last_evil_char=FROM_UNIXTIME(NULLIF(%ld,0)), "
 		"flags1=%lu, flags2=%lu, flags3=%lu, flags4=%lu",
-		name.c_str(), email.c_str(), password.c_str(), confirmation.c_str(),
+		name.c_str(), password.c_str(), confirmation.c_str(),
 		acc->acct_confirmed, acc->acct_confirmation_sent, acc->acct_blocked, acc->acct_last,
 		acc->acct_good, acc->acct_evil, acc->acct_flags1, acc->acct_flags2,
-		acc->acct_flags3, acc->acct_flags4, email.c_str(), password.c_str(),
+		acc->acct_flags3, acc->acct_flags4, password.c_str(),
 		confirmation.c_str(), acc->acct_confirmed, acc->acct_confirmation_sent,
 		acc->acct_blocked, acc->acct_last, acc->acct_good, acc->acct_evil, acc->acct_flags1,
 		acc->acct_flags2, acc->acct_flags3, acc->acct_flags4));
@@ -1184,7 +1183,7 @@ P_acct account_from_rows(const account_rows &rows)
 	const sql_row &row = rows.account[0];
 	P_acct acc = allocate_account();
 	acc->acct_name = str_dup(row[0] ? row[0] : "");
-	acc->acct_email = str_dup(row[1] ? row[1] : "");
+	acc->acct_email = str_dup("");
 	acc->acct_password = str_dup(row[2] ? row[2] : "");
 	acc->acct_confirmation = str_dup(row[3] ? row[3] : "");
 	acc->acct_confirmed = row[4] ? atoi(row[4]) : 0;
@@ -1258,7 +1257,7 @@ bool sql_load_account(const char *name, std::function<void(bool ok, P_acct loade
 			if (const unsigned int error_code = sql_select(
 				    connection,
 				    sql_format(
-					    "select account_name, email, password, confirmation_code, confirmed, confirmation_sent, "
+					    "select account_name, NULL, password, confirmation_code, confirmed, confirmation_sent, "
 					    "blocked, UNIX_TIMESTAMP(last_login), UNIX_TIMESTAMP(last_good_char), "
 					    "UNIX_TIMESTAMP(last_evil_char), flags1, flags2, flags3, flags4 "
 					    "from accounts where account_name='%s'",
