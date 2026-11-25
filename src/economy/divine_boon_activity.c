@@ -149,6 +149,7 @@ bool divine_boon_activity_history::observe(const divine_boon_actor &actor, int64
 		sample = now;
 	entry.last = now;
 	entry.last_pid = actor.pid;
+	entry.level = actor.level;
 	return true;
 }
 
@@ -199,6 +200,11 @@ divine_boon_activity_history::population(const std::vector<divine_boon_actor> &c
 	}
 	for (const auto &[key, level] : online)
 		result[key.second].levels.push_back(level);
+	for (const auto &[account, sides] : accounts)
+		for (size_t side = 0; side < sides.size(); ++side)
+			if (sides[side].last >= 0 && now >= sides[side].last &&
+			    now - sides[side].last < 900)
+				result[side].recent_levels.push_back(sides[side].level);
 	std::array<std::set<std::string>, 2> pvp;
 	for (const auto &[key, player] : present)
 	{

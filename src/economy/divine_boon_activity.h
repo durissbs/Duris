@@ -25,6 +25,8 @@ struct divine_boon_population
 	unsigned pvp_accounts = 0;
 	std::vector<uint16_t> levels; // One per eligible online account.
 	std::vector<uint16_t> active_levels; // One per recently active account.
+	// One per account active in the last 15 minutes, online or not.
+	std::vector<uint16_t> recent_levels;
 };
 
 // In-memory only: process replacement warms from newly observed gameplay.
@@ -41,6 +43,7 @@ class divine_boon_activity_history
 	{
 		int64_t last = -1;
 		uint32_t last_pid = 0;
+		uint16_t level = 0; // The last actor's level.
 		std::array<int64_t, 60> minutes;
 		history() { minutes.fill(-1); }
 	};

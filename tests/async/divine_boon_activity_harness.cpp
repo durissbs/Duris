@@ -77,6 +77,17 @@ void windows_and_accounts()
 	assert(!history.observe(good, 4799));
 	good.account = "new-owner";
 	assert(history.population({ good }, 4801)[0].active_accounts == 0);
+
+	// Recent levels include accounts that logged off within 15 minutes, so an
+	// empty server can still aim its waiting Epic objective at them.
+	divine_boon_activity_history recent;
+	auto leaver = actor(4, "Carol", 1, 38);
+	assert(recent.observe(leaver, 1000));
+	auto left = recent.population({}, 1899);
+	assert(left[0].levels.empty() && left[1].levels.empty());
+	assert(left[1].recent_levels == std::vector<uint16_t>{ 38 } &&
+	       left[0].recent_levels.empty());
+	assert(recent.population({}, 1900)[1].recent_levels.empty());
 }
 
 void sides_and_brackets()
