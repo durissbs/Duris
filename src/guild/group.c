@@ -36,6 +36,7 @@
 #include "core/utils.h"
 #include <stdio.h>
 #include <string.h>
+#include <utility>
 #include "guild/assocs.h"
 #include "net/gmcp.h"
 #include "core/mm.h"
@@ -386,8 +387,8 @@ void send_msp_group(P_char ch, bool force)
 {
 	if (!force && ch->desc->msp_group_manual)
 		return;
-	char body[MAX_STRING_LENGTH] = "";
 	char row[MAX_STRING_LENGTH];
+	std::vector<msp_group_row> rows;
 	for (struct group_list *gl = ch->group; gl; gl = gl->next)
 	{
 		const char *name = IS_NPC(gl->ch)      ? gl->ch->player.short_descr :
@@ -400,26 +401,81 @@ void send_msp_group(P_char ch, bool force)
 		else
 			snprintf(row, sizeof row, "\n(%-5s)  %s\n",
 				 IS_BACKRANKED(gl->ch) ? "Back" : "Front", name);
-		if (ch->in_room == gl->ch->in_room)
+		msp_group_row entry{};
+		entry.member = gl->ch;
+		entry.label = row;
+		entry.local = ch->in_room == gl->ch->in_room;
+		if (entry.local)
 		{
-			displayH(gl->ch, row);
-			displayM(gl->ch, row);
+			entry.hit = GET_HIT(gl->ch);
+			entry.max_hit = GET_MAX_HIT(gl->ch);
+			entry.moves = GET_VITALITY(gl->ch);
+			entry.max_moves = GET_MAX_VITALITY(gl->ch);
+			entry.observed_hit = entry.hit;
+		}
+		rows.push_back(std::move(entry));
+	}
+
+	P_desc d = ch->desc;
+	// Compare with the last transmitted numbers, not fixed percentage bands.
+	// Always publish a return to the maximum, including small over-cap decay.
+	const auto significant = [](int now, int last, int maximum)
+	{
+		if (now == last)
+			return false;
+		if (maximum <= 0 || now == maximum)
+			return true;
+		const long long delta = static_cast<long long>(now) - last;
+		return 20LL * (delta < 0 ? -delta : delta) >= maximum;
+	};
+	const auto critical = [](int hit, int maximum)
+	{ return maximum > 0 && 4LL * hit < maximum; };
+	bool changed = !d->msp_group_output || d->msp_group_output->size() != rows.size();
+	if (!changed)
+	{
+		for (size_t i = 0; i < rows.size(); ++i)
+		{
+			const auto &now = rows[i];
+			auto &last = (*d->msp_group_output)[i];
+			const bool entered_critical = !critical(last.hit, last.max_hit);
+			const bool lost_hit = now.hit < last.observed_hit && now.hit != last.hit;
+			const bool critical_now = now.local && critical(now.hit, now.max_hit);
+			const bool critical_loss = critical_now && (entered_critical || lost_hit);
+			const bool replaced = now.member != last.member;
+			const bool renamed = now.label != last.label;
+			const bool room_changed = now.local != last.local;
+			const bool hp_max_changed = now.max_hit != last.max_hit;
+			const bool move_max_changed = now.max_moves != last.max_moves;
+			const bool hp_changed = significant(now.hit, last.hit, now.max_hit);
+			const bool mv_changed = significant(now.moves, last.moves, now.max_moves);
+			if (replaced || renamed || room_changed || hp_max_changed ||
+			    move_max_changed || hp_changed || mv_changed || critical_loss)
+			{
+				changed = true;
+				break;
+			}
+			last.observed_hit = now.hit;
+		}
+	}
+	if (!force && !changed)
+		return;
+	// Only render the wire body when an update actually qualifies.
+	char body[MAX_STRING_LENGTH] = "";
+	for (const auto &entry : rows)
+	{
+		strlcpy(row, entry.label.c_str(), sizeof row);
+		if (entry.local)
+		{
+			displayH(entry.member, row);
+			displayM(entry.member, row);
 		}
 		else
 			strlcat(row, "\n", sizeof row);
 		strlcat(body, row, sizeof body);
 	}
-
-	P_desc d = ch->desc;
-	const bool changed = !d->msp_group_output || strcmp(d->msp_group_output, body);
-	if (!force && !changed)
-		return;
-	if (changed)
-	{
-		if (d->msp_group_output)
-			FREE(d->msp_group_output);
-		d->msp_group_output = str_dup(body);
-	}
+	if (!d->msp_group_output)
+		d->msp_group_output = new std::vector<msp_group_row>;
+	*d->msp_group_output = std::move(rows);
 	if (!ch->group)
 		send_to_char("<group>\n</group>\n", ch);
 	else
@@ -778,12 +834,13 @@ static bool do_group_add(P_char ch, P_char victim)
 				act("Your group has merged into $n's group.", FALSE, ch, 0, victim,
 				    TO_VICT);
 			}
+			else if (victim->desc)
+				victim->desc->last_group_update = GROUP_UPDATE_ALL;
 		}
 		mm_release(dead_group_pool, old_group);
 		old_group = next;
 	}
 
-	update_groupies(ch, true);
 	return true;
 }
 
@@ -985,22 +1042,20 @@ void update_groupies(P_char ch, bool only_in_room)
 	}
 }
 
-// Resource changes affect MSP rows only when the member is in the recipient's room.
-// Keep remote structured vitals delivery without rebuilding an unchanged MSP frame.
-// Regeneration gains pass msp_frame = false: their one-point steps would otherwise
-// send a whole MSP group frame (or, in quiet mode, a prompt) several times a second.
-// GMCP clients still get them. Losses, such as bleeding out, still redraw.
-void update_group_vitals(P_char ch, bool msp_frame)
+// Resource changes affect MSP rows only in the recipient's room. All changes,
+// including regeneration gains, schedule a coalesced threshold evaluation.
+// Regeneration gains still do not force a quiet-mode prompt.
+void update_group_vitals(P_char ch, bool force_prompt)
 {
-	// Prompt-based health checkers still need current self vitals in quiet mode.
-	if (msp_frame && ch->desc && ch->desc->term_type == TERM_MSP && ch->desc->msp_group_manual)
+	if (force_prompt && ch->desc && ch->desc->term_type == TERM_MSP &&
+	    ch->desc->msp_group_manual)
 		ch->desc->prompt_mode = TRUE;
 	for (struct group_list *gl = ch->group; gl; gl = gl->next)
 	{
 		P_desc d = gl->ch ? gl->ch->desc : nullptr;
 		if (!d)
 			continue;
-		if (msp_frame && d->term_type == TERM_MSP && !d->msp_group_manual &&
+		if (d->term_type == TERM_MSP && !d->msp_group_manual &&
 		    ch->in_room == gl->ch->in_room)
 			d->last_group_update = GROUP_UPDATE_ALL;
 		else if (GMCP_ENABLED(gl->ch) && !d->last_group_update)
@@ -1196,6 +1251,7 @@ bool group_add_member(P_char leader, P_char member)
 	REMOVE_BIT(member->specials.act2, PLR2_BACK_RANK);
 	if (in_command_aura(member))
 		add_aura_message(member, leader);
+	update_groupies(leader);
 	telemetry_group_context_changed(leader->group);
 	return TRUE;
 }

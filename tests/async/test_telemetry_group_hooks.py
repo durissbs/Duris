@@ -23,7 +23,8 @@ def main():
     hook_signature = 'static void telemetry_group_context_changed('
     helper = function(source, hook_signature) if hook_signature in source else ''
     bodies = '\n'.join(function(source, s) for s in (
-        'bool group_remove_member(', 'bool group_add_member(', 'void do_disband(', 'void update_groupies('))
+        'bool group_remove_member(', 'bool group_add_member(', 'void do_disband(', 'void update_groupies(',
+        'static bool do_group_add(P_char ch, P_char victim)\n'))
     prelude = r'''
 #include <cassert>
 #include <cstddef>
@@ -41,6 +42,7 @@ struct group_list { P_char ch; group_list *next; };
 struct character {
     int in_room = 1;
     group_list *group = nullptr;
+    P_char following = nullptr;
     char_link_data *linked = nullptr;
     descriptor *desc = nullptr;
     bool alive = true, npc = false;
@@ -53,6 +55,7 @@ mm_ds pool;
 mm_ds *dead_group_pool = &pool;
 constexpr int TERM_MSP = 9, CON_PLAYING = 0, MAX_STRING_LENGTH = 1024, LOG_DEBUG = 0;
 constexpr unsigned PLR2_BACK_RANK = 1;
+constexpr int GROUP_UPDATE_ALL = 1, TO_CHAR = 1, TO_VICT = 2, TO_NOTVICT = 3;
 constexpr int LNK_CONSENT = 0, LNK_SONG = 1, SONG_SHADOW_PIPER = 2, SONG_NIMBLENESS = 3;
 bool affected_by_spell(P_char, int) { return false; }
 void affect_from_char(P_char, int) { assert(false); }
@@ -75,6 +78,7 @@ bool in_command_aura(P_char) { return false; }
 void remove_aura_message(P_char, P_char) {}
 void add_aura_message(P_char, P_char) {}
 void send_to_char(const char *, P_char) {}
+void act(const char *, bool, P_char, int, P_char, int) {}
 void wizlog(int, const char *, const char *) {}
 void logit(int, const char *) {}
 void fix_group_ranks(P_char) {}
@@ -82,7 +86,8 @@ int free_back_slots(P_char) { return 0; }
 void update_groupies(P_char, bool only_in_room = false);
 bool racewar(P_char, P_char) { return false; }
 bool is_linked_to(P_char, P_char, int) { return true; }
-int get_property(const char *, int n) { return n; }
+static int group_limit = 13;
+int get_property(const char *, int) { return group_limit; }
 mm_ds *mm_create(const char *, std::size_t, std::size_t, int) { return &pool; }
 void *mm_get(mm_ds *) { return new group_list{}; }
 void mm_release(mm_ds *, void *p) { delete static_cast<group_list*>(p); }
@@ -109,7 +114,11 @@ int main() {
     assert(group_add_member(&a, &b));
     assert(last_size(&a) == 2 && last_size(&b) == 2);
     observed.clear();
+    b.in_room = 2;
+    da.last_group_update = db.last_group_update = dc.last_group_update = 0;
+    db.term_type = TERM_MSP; db.gmcp_enabled = 0;
     assert(group_add_member(&a, &c));
+    assert(da.last_group_update && db.last_group_update && dc.last_group_update);
     assert(observed.size() == 3 && last_size(&a) == 3 && last_size(&b) == 3 && last_size(&c) == 3);
     observed.clear();
     assert(!group_add_member(&a, &b));
@@ -142,6 +151,18 @@ int main() {
     assert(group_remove_member(&a));
     assert(last_size(&a) == 1 && last_size(&b) == 3 && last_size(&c) == 3 && last_size(&d) == 3);
     do_disband(&b, nullptr, 0);
+    // A merge that runs out of slots detaches the rejected member and
+    // must clear their panel even when the member is in another room.
+    assert(group_add_member(&a, &b));
+    assert(group_add_member(&c, &d));
+    group_limit = 3;
+    d.in_room = 2;
+    dd.term_type = TERM_MSP; dd.gmcp_enabled = 0;
+    dd.last_group_update = 0;
+    assert(do_group_add(&a, &c));
+    assert(c.group == a.group && !d.group);
+    assert(dd.last_group_update == GROUP_UPDATE_ALL);
+    do_disband(&a, nullptr, 0);
     observed.clear();
 #if HAVE_TELEMETRY_GROUP_HOOK
     group_list cycle{&a, nullptr}; cycle.next = &cycle; a.group = &cycle;

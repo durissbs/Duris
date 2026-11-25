@@ -6017,8 +6017,8 @@ void do_toggle(P_char ch, char *arg, int /*cmd*/)
 			return;
 		}
 		send_ch->desc->msp_group_manual = quiet;
-		if (send_ch->desc->msp_group_output)
-			FREE(send_ch->desc->msp_group_output);
+		delete send_ch->desc->msp_group_output;
+		send_ch->desc->msp_group_output = nullptr;
 		if (send_ch->desc->msp_automap_output)
 			FREE(send_ch->desc->msp_automap_output);
 		if (send_ch->desc->term_type == TERM_MSP)

@@ -37,6 +37,8 @@
 #include "economy/shopkeeper_save_policy.h"
 #include "telemetry/telemetry_types.h"
 
+#include <string>
+#include <vector>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <zlib.h>
@@ -1764,6 +1766,16 @@ enum group_update_kind
 	GROUP_UPDATE_REMOTE_VITALS = 2
 };
 
+// Last transmitted MSP group rows, owned by the recipient's descriptor.
+struct msp_group_row
+{
+	P_char member;
+	std::string label;
+	bool local;
+	int hit, max_hit, moves, max_moves;
+	int observed_hit = 0; // Last evaluated HP, even if the frame was suppressed.
+};
+
 struct descriptor_data
 {
 	// Session-local cosmetic state, zeroed on allocation/reconnect/copyover.
@@ -1827,7 +1839,7 @@ struct descriptor_data
 	int last_map_update; /* CLIENT SPECIFIC INT */
 	int last_group_update; /* Pending group_update_kind, or zero. */
 	bool msp_group_manual; /* Quiet MSP: group frames only on explicit request. */
-	char *msp_group_output; /* Last displayed group body; owned by this connection. */
+	std::vector<msp_group_row> *msp_group_output; /* Last transmitted MSP group rows. */
 	char *msp_automap_output; /* Last automatic MSP map body; owned by this connection. */
 
 	/* WebSocket support */
