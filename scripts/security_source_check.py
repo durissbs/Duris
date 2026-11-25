@@ -50,9 +50,8 @@ for token in ("DB_HOST_DEFAULT", "DB_USER_DEFAULT", "DB_PASSWD_DEFAULT", "DB_NAM
     if token in sql_header:
         failures.append(f"src/sql/sql.h restores compiled database default {token}")
 
-# exactly one translation unit, and the libcurl surface can neither print error prose nor
-# weaken certificate verification.
-MAIL_SENDER = "src/net/mail_sender.c"
+# The game must never read the retired SMTP credential; retain libcurl TLS and
+# error-hygiene guards for other HTTP integrations.
 for path in tracked_files():
     if not path.is_file():
         continue
@@ -62,8 +61,8 @@ for path in tracked_files():
         for token in (b"MAIL_PASSWORD_DEFAULT", b"MAIL_USERNAME_DEFAULT"):
             if token in data:
                 failures.append(f"{relative} restores compiled mail credential default {token.decode()}")
-        if re.search(rb'getenv\s*\(\s*"MAIL_PASSWORD"\s*\)', data) and relative != MAIL_SENDER:
-            failures.append(f"{relative} reads MAIL_PASSWORD outside {MAIL_SENDER}")
+        if re.search(rb'getenv\s*\(\s*"MAIL_PASSWORD"\s*\)', data):
+            failures.append(f"{relative} reads retired MAIL_PASSWORD")
         for token in (
             b"CURLOPT_VERBOSE",
             b"CURLOPT_ERRORBUFFER",
