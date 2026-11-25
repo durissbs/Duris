@@ -23055,7 +23055,7 @@ Without an option, what it covers stays behind or is reset:
   +money   coins on hand and the account bank go along (otherwise the coins
            go to the old side's bank, and the bank stays there)
   +eq      equipment and inventory go along, moved to inventory to be worn
-           again (otherwise they are destroyed)
+           again (otherwise they are destroyed, including pet gear)
   +epics   epic points and epic skills go along; epic skills the new race or class
            cannot use are refunded, the epic points to the character and the
            coins to the new side's bank (otherwise all are reset)
@@ -23064,7 +23064,10 @@ Without an option, what it covers stays behind or is reset:
            locker holds anything
   +frags   frags go along (otherwise they are reset)
 
-Without confirm, it only shows what it would do.
+Without confirm, it only shows what it would do. Account login is blocked
+while a swap is running. If a save or final account write fails, the account
+stays locked in memory; staff must reconcile its characters and assets before
+restarting the server. A partial save is not automatically rolled back.
 
 See also: NEWCHAR, SETBIT
 ===========================================================================

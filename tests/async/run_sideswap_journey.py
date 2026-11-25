@@ -14,6 +14,7 @@ ROOT = journey.ROOT
 ACCOUNT, FIRST, SECOND = "Swapacct", "Swapfirst", "Swapsecond"
 GOD, GOD_ACCOUNT = "Swapwarden", "Swapstaff"
 ANATOMY = 1201  # an epic skill warriors can learn and sorcerers cannot
+DEVASTATING_CRITICAL = 1229
 SORCERER = 1 << 9
 
 
@@ -121,6 +122,22 @@ def run(binary):
                 assert sql(f"SELECT GROUP_CONCAT(racewar ORDER BY name) FROM player_data "
                            f"WHERE name IN ('{FIRST}','{SECOND}')") == "1,1"
 
+                # Disabled creation classes must not be granted by sideswap.
+                god.send(f"sideswap {ACCOUNT} {FIRST}=drow:dragoon {SECOND}=orc")
+                god.expect("Sideswap refused:", timeout=30)
+                god.expect("that race cannot be a", timeout=30)
+
+                # Same-class race change must refund a prohibited racial epic.
+                sql(f"INSERT INTO player_skills(pid,skill_id,learned,taught) SELECT pid,"
+                    f"{DEVASTATING_CRITICAL},10,10 FROM player_data WHERE name='{SECOND}' "
+                    f"ON DUPLICATE KEY UPDATE learned=10,taught=10")
+                god.send(f"sideswap {ACCOUNT} {FIRST}=drow {SECOND}=14 +epics")
+                preview = god.expect("Nothing was changed. Add 'confirm' to do this.", timeout=30)
+                assert "refunds devastating critical" in preview.lower(), preview
+                assert sql(f"SELECT learned FROM player_skills ps JOIN player_data pd ON "
+                           f"ps.pid=pd.pid WHERE pd.name='{SECOND}' "
+                           f"AND ps.skill_id={DEVASTATING_CRITICAL}") == "10"
+
                 # Good to evil, taking money, locker and equipment along.
                 swap = f"sideswap {ACCOUNT} {FIRST}=drow {SECOND}=orc +money +locker +eq"
                 god.send(swap)
@@ -186,8 +203,40 @@ def run(binary):
                 assert "Race: Human" in score, score
                 assert "Coins in bank: 1000 platinum" in score, score
                 stop()
+
+                # Fail the second character's final update on this disposable
+                # schema. The first save may commit, but the account must not.
+                sql(f"UPDATE player_data SET platinum=5 WHERE name='{SECOND}'")
+                sql("DELIMITER //\n"
+                    "CREATE TRIGGER sideswap_reject_second BEFORE UPDATE ON player_data "
+                    "FOR EACH ROW BEGIN "
+                    f"IF OLD.name='{SECOND}' AND NEW.racewar=2 THEN "
+                    "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='sideswap test failure'; "
+                    "END IF; END//\nDELIMITER ;\n")
+                process = boot()
+                god = login(GOD, GOD_ACCOUNT)
+                god.send(f"sideswap {ACCOUNT} {FIRST}=drow {SECOND}=orc +eq confirm")
+                god.expect("Account remains locked", timeout=60)
+                until(f"SELECT GROUP_CONCAT(racewar ORDER BY pid) FROM account_characters "
+                      f"WHERE pid IN ({pids})", "1,1")
+                until(f"SELECT CONCAT(racewar,':',bank_platinum) FROM account_banks WHERE "
+                      f"account_name='{ACCOUNT}' ORDER BY racewar", "1:1000\n2:32")
+                until(f"SELECT CONCAT(racewar,':',platinum) FROM player_data "
+                      f"WHERE name='{SECOND}'", "1:5")
+                denied = journey.MudClient(plain)
+                clients.append(denied)
+                entry, _ = denied.expect_any(("term type", "account name"))
+                if entry == "term type":
+                    denied.send("9")
+                    denied.expect("account name")
+                denied.send(ACCOUNT)
+                denied.expect("There is an error with your account", timeout=30)
+                denied.close()
+                clients.remove(denied)
+                sql("DROP TRIGGER sideswap_reject_second")
+                stop()
                 print("PASS: sideswap preview, refusals, whole-account move, bank, locker, "
-                      "items and login on the new side", flush=True)
+                      "items, login and failed-save fencing", flush=True)
             except BaseException:
                 print(output_path.read_text(errors="replace")[-5000:])
                 print(journey.runtime_logs(runtime)[-5000:])

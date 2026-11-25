@@ -55,6 +55,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 extern struct race_names race_names_table[];
@@ -792,6 +793,18 @@ void all_loaded(const std::shared_ptr<sideswap_request> &request)
 				      tell(*request, "Account changed while loading. Nothing was changed.\r\n");
 				      finish(request);
 				      return;
+			      }
+			      for (const sideswap_target &target : request->targets)
+			      {
+				      player_revision_snapshot revision = {};
+				      if (!player_revision_snapshot_copy(target.pid, &revision) ||
+					  revision.written_revision != target.loaded_revision)
+				      {
+					      tell(*request, "Character save changed while loading. "
+					     "Nothing was changed.\r\n");
+					      finish(request);
+					      return;
+				      }
 			      }
 			      apply(request);
 		      }))
