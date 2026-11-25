@@ -36,11 +36,13 @@
 #include "core/files.h"
 #include "core/utility.h"
 #include "guild/assocs.h"
+#include "guild/artifact_admission.h"
 #include "item/item_removal_audit.h"
 #include "magic/spells.h"
 #include "player/player_load_items.h"
 #include "player/player_load_offline.h"
 #include "player/player_load_pipeline.h"
+#include "player/player_revision_state.h"
 #include "sql/sql.h"
 #include "sql/sql_async.h"
 #include "sql/sql_player.h"
@@ -48,6 +50,8 @@
 #include "world/epic_command.h"
 #include "world/epic_transaction.h"
 
+#include <cerrno>
+#include <cstdlib>
 #include <memory>
 #include <set>
 #include <string>
@@ -66,6 +70,8 @@ struct sideswap_target
 {
 	std::string name;
 	int pid = 0;
+	player_revision_t loaded_revision = 0;
+	player_revision_t saved_revision = 0;
 	int race = 0;
 	unsigned int m_class = 0; // 0 keeps the current class
 	P_char ch = nullptr;
@@ -174,24 +180,46 @@ void collect_artifacts(P_obj object, std::vector<P_obj> *found)
 {
 	for (; object; object = object->next_content)
 	{
+		collect_artifacts(object->contains, found);
 		if (IS_ARTIFACT(object))
 			found->push_back(object);
-		collect_artifacts(object->contains, found);
 	}
 }
 
+// Offline loads contain the player's saved pets, not transient group followers.
+std::vector<P_char> item_holders(P_char ch)
+{
+	std::vector<P_char> holders{ ch };
+	for (auto *link = ch->followers; link; link = link->next)
+		if (IS_NPC(link->follower))
+			holders.push_back(link->follower);
+	return holders;
+}
+
+// Post-order: a nested artifact is retired before its container.
 std::vector<P_obj> artifacts_of(P_char ch)
 {
 	std::vector<P_obj> found;
-	for (int slot = 0; slot < MAX_WEAR; ++slot)
-		if (ch->equipment[slot])
-		{
-			if (IS_ARTIFACT(ch->equipment[slot]))
-				found.push_back(ch->equipment[slot]);
-			collect_artifacts(ch->equipment[slot]->contains, &found);
-		}
-	collect_artifacts(ch->carrying, &found);
+	for (P_char holder : item_holders(ch))
+	{
+		for (int slot = 0; slot < MAX_WEAR; ++slot)
+			if (holder->equipment[slot])
+			{
+				collect_artifacts(holder->equipment[slot]->contains, &found);
+				if (IS_ARTIFACT(holder->equipment[slot]))
+					found.push_back(holder->equipment[slot]);
+			}
+		collect_artifacts(holder->carrying, &found);
+	}
 	return found;
+}
+
+P_char artifact_holder(P_obj object)
+{
+	while (OBJ_INSIDE(object) && object->loc.inside)
+		object = object->loc.inside;
+	return OBJ_CARRIED(object) ? object->loc.carrying :
+	       OBJ_WORN(object) ? object->loc.wearing : nullptr;
 }
 
 int count_objects(P_obj object)
@@ -227,7 +255,7 @@ void release_loaded(P_char ch)
 	free_char(ch);
 }
 
-void finish(const std::shared_ptr<sideswap_request> &request)
+void finish(const std::shared_ptr<sideswap_request> &request, bool unlock = true)
 {
 	for (sideswap_target &target : request->targets)
 		if (target.ch)
@@ -235,7 +263,8 @@ void finish(const std::shared_ptr<sideswap_request> &request)
 			release_loaded(target.ch);
 			target.ch = nullptr;
 		}
-	accounts_in_progress.erase(lower(request->account));
+	if (unlock)
+		accounts_in_progress.erase(lower(request->account));
 }
 
 bool account_in_game(const std::string &account)
@@ -298,7 +327,11 @@ std::string check_plan(sideswap_request &request)
 					    "its guild; delete the guild first.\r\n";
 		}
 
-		target.artifacts = static_cast<int>(artifacts_of(ch).size());
+		const auto artifacts = artifacts_of(ch);
+		target.artifacts = static_cast<int>(artifacts.size());
+		for (P_obj artifact : artifacts)
+			if (!artifact_is_canonical(artifact) || !artifact_holder(artifact))
+				problems += who + "has an artifact with invalid identity or custody.\r\n";
 		if (target.artifacts && !request.artis && !updateArtis)
 			problems += who +
 				    "artifact updates are off, so its artifacts cannot return to "
@@ -307,11 +340,15 @@ std::string check_plan(sideswap_request &request)
 		target.wallet = GET_MONEY(ch);
 		if (!request.eq)
 		{
-			target.destroyed_items = count_objects(ch->carrying);
-			for (int slot = 0; slot < MAX_WEAR; ++slot)
-				if (ch->equipment[slot])
-					target.destroyed_items +=
-						1 + count_objects(ch->equipment[slot]->contains);
+			target.destroyed_items = 0;
+			for (P_char holder : item_holders(ch))
+			{
+				target.destroyed_items += count_objects(holder->carrying);
+				for (int slot = 0; slot < MAX_WEAR; ++slot)
+					if (holder->equipment[slot])
+						target.destroyed_items +=
+							1 + count_objects(holder->equipment[slot]->contains);
+			}
 			target.destroyed_items -= target.artifacts;
 		}
 
@@ -370,7 +407,7 @@ std::string describe_plan(const sideswap_request &request)
 		{
 			snprintf(
 				buf, sizeof(buf),
-				"    &+R%d item(s) destroyed&n (equipment, inventory and their contents)\r\n",
+				"    &+R%d item(s) destroyed&n (including pet gear and container contents)\r\n",
 				target.destroyed_items);
 			text += buf;
 		}
@@ -510,27 +547,64 @@ bool swap_character(const sideswap_request &request, sideswap_target &target)
 {
 	P_char ch = target.ch;
 
-	if (GET_ASSOC(ch))
-		GET_ASSOC(ch)->secede(ch);
-
+	// Separate nested artifacts before retiring their containers. Use the
+	// existing non-crumbling attachment path for offline inventory.
 	for (P_obj artifact : artifacts_of(ch))
-		if (!request.artis)
-			poof_artifact(artifact);
-		else if (OBJ_INSIDE(artifact))
+	{
+		P_char holder = artifact_holder(artifact);
+		if (!holder || !artifact_is_canonical(artifact))
+			return false;
+		if (OBJ_INSIDE(artifact))
 		{
 			obj_from_obj(artifact);
-			obj_to_char(artifact, ch);
+			obj_to_char_at_end(artifact, holder);
 		}
-	unequip_all(ch);
-	if (!request.eq)
-		for (P_obj object = ch->carrying, next; object; object = next)
+		if (!request.artis)
 		{
-			next = object->next_content;
-			if (IS_ARTIFACT(object))
-				continue;
-			audit_item_removal("sideswap", capture_item_removal(object));
-			extract_obj(object, TRUE);
+			// Gear retained by +eq must not vanish with an artifact container.
+			while (request.eq && artifact->contains)
+			{
+				P_obj child = artifact->contains;
+				obj_from_obj(child);
+				obj_to_char_at_end(child, holder);
+			}
+			const uint64_t uid = artifact->obj_uid;
+			poof_artifact(artifact);
+			if (find_live_object(artifact, uid))
+				return false;
 		}
+	}
+	// Never purge a container when an artifact failed to retire.
+	if (!request.artis && !artifacts_of(ch).empty())
+		return false;
+
+	for (P_char holder : item_holders(ch))
+	{
+		if (holder == ch || !request.eq)
+			for (int slot = 0; slot < MAX_WEAR; ++slot)
+				if (holder->equipment[slot])
+					obj_to_char_at_end(unequip_char(holder, slot), holder);
+		if (!request.eq)
+			for (P_obj object = holder->carrying, next; object; object = next)
+			{
+				next = object->next_content;
+				if (IS_ARTIFACT(object))
+				{
+					while (object->contains)
+					{
+						P_obj child = object->contains;
+						audit_item_removal("sideswap", capture_item_removal(child));
+						extract_obj(child, TRUE);
+					}
+					continue;
+				}
+				audit_item_removal("sideswap", capture_item_removal(object));
+				extract_obj(object, TRUE);
+			}
+	}
+
+	if (GET_ASSOC(ch))
+		GET_ASSOC(ch)->secede(ch);
 
 	if (!request.money)
 	{
@@ -581,37 +655,105 @@ bool swap_character(const sideswap_request &request, sideswap_target &target)
 	return writeCharacter(ch, RENT_CRASH2, real_room(GET_HOME(ch)));
 }
 
+// Keep the account fenced on any partial/ambiguous write. Staff must reconcile
+// the affected characters before a restart releases the in-memory fence.
+void apply_failed(const std::shared_ptr<sideswap_request> &request, const std::string &reason)
+{
+	std::string detail = reason + " Account bank, locker and side were not confirmed. "
+			     "Account remains locked; reconcile the character saves before restarting.\r\n";
+	for (const sideswap_target &target : request->targets)
+		detail += target.name + (target.saved_revision ? ": save queued at revision " +
+							     std::to_string(target.saved_revision) : ": no final save queued") +
+			  "\r\n";
+	tell(*request, detail);
+	logit(LOG_WIZ, "sideswap: account %s needs reconciliation: %s",
+	      request->account.c_str(), detail.c_str());
+	finish(request, false);
+}
+
+std::string revision_query(const sideswap_request &request)
+{
+	std::string pids;
+	for (const sideswap_target &target : request.targets)
+		pids += (pids.empty() ? "" : ",") + std::to_string(target.pid);
+	return "SELECT pid,save_revision,racewar FROM player_data WHERE pid IN (" + pids + ")";
+}
+
+bool revisions_match(const sql_rows &rows,
+		     const std::vector<std::pair<int, player_revision_t>> &expected, int side)
+{
+	if (rows.size() != expected.size())
+		return false;
+	for (const auto &entry : expected)
+	{
+		bool found = false;
+		for (const sql_row &row : rows)
+			if (row[0] && row[1] && row[2] && atoi(row[0]) == entry.first &&
+			    strtoull(row[1], nullptr, 10) == entry.second && atoi(row[2]) == side)
+				found = true;
+		if (!found)
+			return false;
+	}
+	return true;
+}
+
 void apply(const std::shared_ptr<sideswap_request> &request)
 {
-	char buf[MAX_STRING_LENGTH];
-	int saved = 0;
+	std::vector<std::pair<int, player_revision_t>> expected;
 	for (sideswap_target &target : request->targets)
 	{
-		const std::string name = GET_NAME(target.ch);
-		const int old_race = GET_RACE(target.ch);
-		if (swap_character(*request, target))
-			++saved;
-		else
-			tell(*request, "&+RCould not queue the save of " + name + "!&n\r\n");
-		logit(LOG_WIZ, "sideswap: %s moved %s (pid %d, account %s) from %s %s to %s %s",
-		      request->staff_name.c_str(), name.c_str(), target.pid,
-		      request->account.c_str(), side_name(request->from_side),
-		      race_names_table[old_race].normal, side_name(request->to_side),
-		      race_names_table[target.race].normal);
+		player_revision_snapshot revision = {};
+		if (!swap_character(*request, target) ||
+		    !player_revision_snapshot_copy(target.pid, &revision) ||
+		    revision.acknowledged_revision <= target.loaded_revision)
+		{
+			apply_failed(request, "Could not queue the final save of " + target.name + ".");
+			return;
+		}
+		target.saved_revision = revision.acknowledged_revision;
+		expected.emplace_back(target.pid, target.saved_revision);
 	}
-	if (!sql_queue_statements(account_statements(*request)))
-		tell(*request, "&+RThe account's bank, locker and side could not be queued!&n\r\n");
-	snprintf(buf, sizeof(buf),
-		 "sideswap: %s moved account %s (%zu character(s)) to %s "
-		 "[money:%d eq:%d epics:%d artis:%d locker:%d frags:%d]",
-		 request->staff_name.c_str(), request->account.c_str(), request->targets.size(),
-		 side_name(request->to_side), request->money, request->eq, request->epics,
-		 request->artis, request->locker, request->frags);
-	logit(LOG_WIZ, "%s", buf);
-	wizlog(GREATER_G, "%s", buf);
-	snprintf(buf, sizeof(buf), "Done: %d of %zu character(s) saved on the %s side.\r\n", saved,
-		 request->targets.size(), side_name(request->to_side));
-	tell(*request, buf);
+
+	// The ordered writer runs this after the character saves. Verify their exact
+	// durable revisions in the same transaction as the account updates.
+	const auto statements = account_statements(*request);
+	const auto query = revision_query(*request) + " FOR UPDATE";
+	const int side = request->to_side;
+	if (!sql_read_work(
+		    [query, statements, expected, side](MYSQL *connection, sql_rows *rows) -> unsigned int
+		    {
+			    if (const auto error = sql_select(connection, query, rows))
+				    return error;
+			    if (!revisions_match(*rows, expected, side))
+				    return EINVAL;
+			    for (const auto &statement : statements)
+				    if (const auto error = sql_execute(connection, statement))
+					    return error;
+			    return 0;
+		    },
+		    [request](bool ok, const sql_rows &)
+		    {
+			    if (!ok)
+			    {
+				    apply_failed(request, "Final account transaction failed or was uncertain.");
+				    return;
+			    }
+			    char buf[MAX_STRING_LENGTH];
+			    snprintf(buf, sizeof(buf),
+				     "sideswap: %s moved account %s (%zu character(s)) to %s "
+				     "[money:%d eq:%d epics:%d artis:%d locker:%d frags:%d]",
+				     request->staff_name.c_str(), request->account.c_str(),
+				     request->targets.size(), side_name(request->to_side),
+				     request->money, request->eq, request->epics, request->artis,
+				     request->locker, request->frags);
+			    logit(LOG_WIZ, "%s", buf);
+			    wizlog(GREATER_G, "%s", buf);
+			    snprintf(buf, sizeof(buf), "Done: %zu of %zu character(s) saved on the %s side.\r\n",
+				     request->targets.size(), request->targets.size(), side_name(request->to_side));
+			    tell(*request, buf);
+			    finish(request);
+		    }))
+		apply_failed(request, "Could not queue final account transaction.");
 }
 
 // Every character and the locker state are in: check, then show or apply the plan.
@@ -633,12 +775,30 @@ void all_loaded(const std::shared_ptr<sideswap_request> &request)
 	}
 	tell(*request, describe_plan(*request));
 	if (!request->confirm)
+	{
 		tell(*request, "Nothing was changed. Add 'confirm' to do this.\r\n");
-	else if (any_in_game(*request))
-		tell(*request, "Someone on the account came online. Nothing was changed.\r\n");
-	else
-		apply(request);
-	finish(request);
+		finish(request);
+		return;
+	}
+	std::vector<std::pair<int, player_revision_t>> expected;
+	for (const sideswap_target &target : request->targets)
+		expected.emplace_back(target.pid, target.loaded_revision);
+	if (!sql_read(revision_query(*request),
+		      [request, expected](bool ok, const sql_rows &rows)
+		      {
+			      if (!ok || any_in_game(*request) ||
+				  !revisions_match(rows, expected, request->from_side))
+			      {
+				      tell(*request, "Account changed while loading. Nothing was changed.\r\n");
+				      finish(request);
+				      return;
+			      }
+			      apply(request);
+		      }))
+	{
+		tell(*request, "The database is busy. Nothing was changed.\r\n");
+		finish(request);
+	}
 }
 
 void one_loaded(const std::shared_ptr<sideswap_request> &request)
@@ -731,7 +891,11 @@ void account_loaded(const std::shared_ptr<sideswap_request> &request, bool ok, P
 					 [request, index](P_char loaded)
 					 {
 						 request->targets[index].ch = loaded;
-						 request->load_failed |= !loaded;
+						 player_revision_snapshot revision = {};
+						 const bool valid = loaded && player_revision_snapshot_copy(
+								 request->targets[index].pid, &revision);
+						 request->load_failed |= !valid;
+						 request->targets[index].loaded_revision = revision.written_revision;
 						 one_loaded(request);
 					 }))
 		{
@@ -740,6 +904,11 @@ void account_loaded(const std::shared_ptr<sideswap_request> &request, bool ok, P
 		}
 }
 } // namespace
+
+bool account_sideswap_in_progress(const char *name)
+{
+	return name && accounts_in_progress.count(lower(name));
+}
 
 void do_sideswap(P_char ch, char *argument, int /*cmd*/)
 {
