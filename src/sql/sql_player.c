@@ -988,10 +988,11 @@ bool sql_save_account(struct acct_entry *acc)
 		"flags1=%lu, flags2=%lu, flags3=%lu, flags4=%lu",
 		name.c_str(), password.c_str(), confirmation.c_str(), acc->acct_confirmed,
 		acc->acct_confirmation_sent, acc->acct_blocked, acc->acct_last, acc->acct_good,
-		acc->acct_evil, acc->acct_flags1, acc->acct_flags2, acc->acct_flags3, acc->acct_flags4,
-		password.c_str(), confirmation.c_str(), acc->acct_confirmed, acc->acct_confirmation_sent,
-		acc->acct_blocked, acc->acct_last, acc->acct_good, acc->acct_evil, acc->acct_flags1,
-		acc->acct_flags2, acc->acct_flags3, acc->acct_flags4));
+		acc->acct_evil, acc->acct_flags1, acc->acct_flags2, acc->acct_flags3,
+		acc->acct_flags4, password.c_str(), confirmation.c_str(), acc->acct_confirmed,
+		acc->acct_confirmation_sent, acc->acct_blocked, acc->acct_last, acc->acct_good,
+		acc->acct_evil, acc->acct_flags1, acc->acct_flags2, acc->acct_flags3,
+		acc->acct_flags4));
 	statements.push_back(
 		sql_format("DELETE FROM account_ips WHERE account_name='%s'", name.c_str()));
 	for (struct acct_ip *ip = acc->acct_unique_ips; ip; ip = ip->next)
