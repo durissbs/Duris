@@ -27,6 +27,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 2
     - name: sysinfo
       run: echo -en '\e[33;1mThread count:\e[0m ' && nproc && free -h
     - name: build-deps
@@ -60,6 +62,17 @@ jobs:
         ccache --show-stats
         # Save only what this run used, so each saved cache stays one run's working set.
         ccache --evict-older-than "$((SECONDS + 60))s"
+
+    # Reuse the server already built by shard 1. Run the database journey
+    # only for changes to the account transfer or its persistence entry points.
+    - name: Focused sideswap MariaDB journey
+      if: matrix.shard == 1 && github.event_name == 'pull_request'
+      run: |
+        if git diff --quiet HEAD^1 HEAD -- src/account/wiz_sideswap.c src/account/account.c src/account/account.h src/world/epic.c tests/async/run_sideswap_journey.py .github/workflows/build.yml; then
+          echo 'No sideswap-related changes'
+          exit 0
+        fi
+        tests/async/with_disposable_mariadb.sh python3 tests/async/run_sideswap_journey.py --server bin/server/dms_new
 
   # One stable check for branch rules to require, whatever the shard count.
   result:

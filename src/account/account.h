@@ -150,6 +150,8 @@ void account_apply_verified_email(
 using account_read_done =
 	std::function<void(struct descriptor_data *d, bool ok, struct acct_entry *account)>;
 void account_read(struct descriptor_data *d, const char *name, account_read_done done);
+// A sideswap fences account reads until its final transaction commits.
+bool account_sideswap_in_progress(const char *name);
 // A session that waits for the writer: its input is held until writer_replied() finds it
 // by the id wait_for_writer() gave, or finds nothing once the connection has closed.
 uint64_t wait_for_writer(struct descriptor_data *d);
