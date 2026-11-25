@@ -986,11 +986,10 @@ bool sql_save_account(struct acct_entry *acc)
 		"on duplicate key update password='%s', confirmation_code='%s', "
 		"confirmed=%d, confirmation_sent=%d, blocked=%d, last_login=FROM_UNIXTIME(NULLIF(%ld,0)), last_good_char=FROM_UNIXTIME(NULLIF(%ld,0)), last_evil_char=FROM_UNIXTIME(NULLIF(%ld,0)), "
 		"flags1=%lu, flags2=%lu, flags3=%lu, flags4=%lu",
-		name.c_str(), password.c_str(), confirmation.c_str(),
-		acc->acct_confirmed, acc->acct_confirmation_sent, acc->acct_blocked, acc->acct_last,
-		acc->acct_good, acc->acct_evil, acc->acct_flags1, acc->acct_flags2,
-		acc->acct_flags3, acc->acct_flags4, password.c_str(),
-		confirmation.c_str(), acc->acct_confirmed, acc->acct_confirmation_sent,
+		name.c_str(), password.c_str(), confirmation.c_str(), acc->acct_confirmed,
+		acc->acct_confirmation_sent, acc->acct_blocked, acc->acct_last, acc->acct_good,
+		acc->acct_evil, acc->acct_flags1, acc->acct_flags2, acc->acct_flags3, acc->acct_flags4,
+		password.c_str(), confirmation.c_str(), acc->acct_confirmed, acc->acct_confirmation_sent,
 		acc->acct_blocked, acc->acct_last, acc->acct_good, acc->acct_evil, acc->acct_flags1,
 		acc->acct_flags2, acc->acct_flags3, acc->acct_flags4));
 	statements.push_back(
