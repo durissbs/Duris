@@ -2665,6 +2665,7 @@ void bulk_drop_object(P_char actor, P_obj object, bulk_drop_state &state)
 		      object->short_description, obj_index[object->R_num].virtual_number,
 		      world[actor->in_room].number);
 	}
+	const uint64_t uid = object->obj_uid;
 	const bool money = object->type == ITEM_MONEY;
 	const bool pc_corpse = object->type == ITEM_CORPSE && IS_SET(object->value[1], PC_CORPSE);
 	const int room = actor->in_room;
@@ -2676,8 +2677,11 @@ void bulk_drop_object(P_char actor, P_obj object, bulk_drop_state &state)
 	 * object it merged, so nothing below may touch a money object again. */
 	if (money)
 		return;
-	if (object->obj_uid > 0)
-		redis_log_floor_drop(object, world[room].number);
+	object = find_live_object(object, uid);
+	if (!object || !OBJ_ROOM(object))
+		return;
+	if (uid)
+		redis_log_floor_drop(object, world[object->loc.room].number);
 	if (pc_corpse)
 		writeCorpse(object);
 }
@@ -3394,13 +3398,15 @@ void do_drop(P_char ch, char *argument, int cmd)
 						      obj_index[tmp_object->R_num].virtual_number,
 						      world[ch->in_room].number);
 					}
+					const uint64_t uid = tmp_object->obj_uid;
 					if (IS_PC(ch))
 						obj_to_room_dropped(tmp_object, ch->in_room);
 					else
 						obj_to_room(tmp_object, ch->in_room);
-					if (IS_PC(ch) && tmp_object->obj_uid > 0)
+					tmp_object = find_live_object(tmp_object, uid);
+					if (IS_PC(ch) && uid && OBJ_ROOM(tmp_object))
 						redis_log_floor_drop(tmp_object,
-								     world[ch->in_room].number);
+								     world[tmp_object->loc.room].number);
 					dropped_any = true;
 
 					test = TRUE;
@@ -3479,17 +3485,19 @@ void do_drop(P_char ch, char *argument, int cmd)
 						      obj_index[tmp_object->R_num].virtual_number,
 						      world[ch->in_room].number);
 					}
+					const uint64_t uid = tmp_object->obj_uid;
 					if (IS_PC(ch))
 						obj_to_room_dropped(tmp_object, ch->in_room);
 					else
 						obj_to_room(tmp_object, ch->in_room);
+					tmp_object = find_live_object(tmp_object, uid);
 
 					if (IS_PC(ch))
 					{
-						if (tmp_object->obj_uid > 0)
+						if (uid && OBJ_ROOM(tmp_object))
 							redis_log_floor_drop(
 								tmp_object,
-								world[ch->in_room].number);
+								world[tmp_object->loc.room].number);
 						mark_player_dirty_components(
 							GET_PID(ch),
 							PLAYER_COMPONENT_STATUS |
