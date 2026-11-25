@@ -22,6 +22,7 @@
 #include "world/world_recovery_codec.h"
 #include "world/world_recovery_pipeline.h"
 
+#include <cstring>
 #include <ctime>
 #include <new>
 #include <vector>
@@ -123,33 +124,38 @@ void redis_log_floor_drop(P_obj obj, int room_vnum)
 
 	// Keep one pending upsert per UID. A failed replacement leaves the previous
 	// recoverable record untouched, and relocation never emits a delete.
-	for (int index = 0; index < floor_drop_batch_count; ++index)
-	{
+	int index = 0;
+	for (; index < floor_drop_batch_count; ++index)
 		if (floor_drop_batch[index].uid == obj->obj_uid)
-		{
-			floor_drop_batch[index] = floor_drop_replacement;
-			return;
-		}
-	}
+			break;
 
-	if (floor_drop_batch_count >= max_floor_drop_batch)
+	if (index == floor_drop_batch_count)
 	{
-		redis_flush_floor_drops();
 		if (floor_drop_batch_count >= max_floor_drop_batch)
 		{
-			logit(LOG_SYS, "redis: floor delta retry buffer is full");
-			return;
+			redis_flush_floor_drops();
+			if (floor_drop_batch_count >= max_floor_drop_batch)
+			{
+				logit(LOG_SYS, "redis: floor delta retry buffer is full");
+				return;
+			}
 		}
+		index = floor_drop_batch_count++;
 	}
 
-	floor_drop_batch[floor_drop_batch_count++] = floor_drop_replacement;
+	pending_floor_drop &pending = floor_drop_batch[index];
+	pending.uid = floor_drop_replacement.uid;
+	pending.record_size = floor_drop_replacement.record_size;
+	memcpy(pending.record, floor_drop_replacement.record, pending.record_size);
+
 	// If the same item was picked up and redropped before a flush, the new
 	// upsert supersedes its queued removal.
-	for (int index = 0; index < floor_drop_remove_count; ++index)
+	for (int remove = 0; remove < floor_drop_remove_count; ++remove)
 	{
-		if (floor_drop_removes[index] == obj->obj_uid)
+		if (floor_drop_removes[remove] == obj->obj_uid)
 		{
-			floor_drop_removes[index--] = floor_drop_removes[--floor_drop_remove_count];
+			floor_drop_removes[remove] = floor_drop_removes[--floor_drop_remove_count];
+			break;
 		}
 	}
 #endif
