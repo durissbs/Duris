@@ -55,7 +55,6 @@ void persistence_alert(int, const char *, const char *, const char *, const char
 		       const char *, ...)
 {
 }
-void account_recovery_invalidate(const char *) {}
 using Clock = std::chrono::steady_clock;
 // The real bcrypt calls must run outside the descriptor thread.
 static thread_local bool descriptor_thread = false;
@@ -104,9 +103,7 @@ int main(int argc, char **)
 	auto acct = std::make_unique<std::remove_pointer_t<P_acct>>();
 	d->account = acct.get();
 	char name[] = "Test";
-	char email[] = "test@example.invalid";
 	d->account->acct_name = name;
-	d->account->acct_email = email;
 	// Exercise the actual account-creation and confirmation handlers, including
 	// mismatch/retry and the confirmed account password-change save branch.
 	char entered[] = "password-one";
@@ -151,7 +148,6 @@ int main(int argc, char **)
 		{
 			d->account = allocate_account();
 			d->account->acct_name = str_dup("Race");
-			d->account->acct_email = str_dup("loser@example.invalid");
 			d->websocket = websocket;
 			STATE(d) = websocket ? CON_GET_ACCT_NAME : CON_GET_NEW_ACCT_PASSWD;
 			auto *job = password_work_submit("loser-password", nullptr, nullptr, 0, 0);
@@ -170,8 +166,6 @@ int main(int argc, char **)
 				free(result);
 			}
 			d->account->acct_password = str_dup("winner-credential");
-			FREE(d->account->acct_email);
-			d->account->acct_email = str_dup("winner@example.invalid");
 			d->account->acct_confirmed = 1;
 			output.clear();
 			int previous_failures = auth_failures;

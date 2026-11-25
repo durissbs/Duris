@@ -43,7 +43,6 @@
 #include "player/player_load_offline.h"
 #include "player/player_load_pipeline.h"
 #include "sql/sql_async.h"
-#include "account/account_recovery.h"
 #include "combat/chaos_config.h"
 #include "cmd/interp.h"
 #include "core/defines.h"
@@ -2855,9 +2854,6 @@ void ws_cmd_change_password(struct descriptor_data *d, cJSON *data)
 						      "write_failed", NULL);
 				    return;
 			    }
-
-			    /* A reset code issued against the old password must never complete. */
-			    account_recovery_invalidate(completed_desc->account->acct_name);
 
 			    statuslog(56, "Account password changed");
 

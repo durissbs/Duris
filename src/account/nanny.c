@@ -46,7 +46,6 @@
 #include <time.h>
 #include "account/account.h"
 #include "account/kept_character_recovery.h"
-#include "account/account_recovery.h"
 #include "world/achievements.h"
 #include "guild/assocs.h"
 #include "world/epic.h"
@@ -4540,7 +4539,6 @@ void nanny(P_desc d, char *arg)
 	case CON_ACCT_RESET_CODE:
 	case CON_ACCT_RESET_NEWPW:
 	case CON_ACCT_RESET_NEWPW2:
-		account_recovery_descriptor_cleanse(d);
 		send_account_password_prompt(d);
 		break;
 

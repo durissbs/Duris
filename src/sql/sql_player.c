@@ -1183,7 +1183,6 @@ P_acct account_from_rows(const account_rows &rows)
 	const sql_row &row = rows.account[0];
 	P_acct acc = allocate_account();
 	acc->acct_name = str_dup(row[0] ? row[0] : "");
-	acc->acct_email = str_dup("");
 	acc->acct_password = str_dup(row[2] ? row[2] : "");
 	acc->acct_confirmation = str_dup(row[3] ? row[3] : "");
 	acc->acct_confirmed = row[4] ? atoi(row[4]) : 0;

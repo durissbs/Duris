@@ -19,9 +19,6 @@ REVIEWED = [
     "modify.c",
     "utility.c",
     "ws_handlers.c",
-    "account_recovery.c",
-    "account_recovery_nanny.c",
-    "mail_sender.c",
 ]
 
 texts = {name: (SRC / name).read_text() for name in REVIEWED}

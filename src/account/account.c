@@ -37,7 +37,6 @@
 #include "core/utils.h"
 #include "core/safe_format.h"
 #include "account/account.h"
-#include "account/account_recovery.h"
 #include "account/account_reward.h"
 #include "account/creation_availability_config.h"
 #include "account/pwipe_launch.h"
@@ -76,10 +75,8 @@
 #include "redis/redis_ship_legacy.h"
 
 #include <unordered_map>
-#include <unordered_set>
 #include <new>
 #include <string>
-#include <fstream>
 #include <utility>
 #include <vector>
 
@@ -346,122 +343,8 @@ bool build_account_load_request(P_desc d, struct acct_chars *c, player_load_requ
 } // namespace
 
 #define ACCT_SERIAL 1
-#define ACCOUNT_EMAIL_DB "Accounts/email.db"
 
 void check_rested_bonus(P_desc);
-
-// Email validation function with strict RFC compliance
-// Returns 1 if valid, 0 if invalid
-int is_valid_email(const char *email)
-{
-	const char *p;
-	int at_count = 0, dot_after_at = 0;
-	int local_len = 0, domain_len = 0;
-	char prev_char = '\0';
-
-	if (!email || !*email)
-		return 0;
-
-	// Find the @ symbol and validate local part
-	for (p = email; *p && *p != '@'; p++)
-	{
-		local_len++;
-
-		// Check for valid characters in local part
-		if (!isalnum(*p) && *p != '.' && *p != '-' && *p != '_' && *p != '+')
-			return 0;
-
-		// Can't start with a dot
-		if (local_len == 1 && *p == '.')
-			return 0;
-
-		// Can't have consecutive dots
-		if (*p == '.' && prev_char == '.')
-			return 0;
-
-		prev_char = *p;
-	}
-
-	// Local part must exist and can't end with dot
-	if (local_len == 0 || local_len > 64 || prev_char == '.')
-		return 0;
-
-	// Must have exactly one @
-	if (*p != '@')
-		return 0;
-
-	p++; // Skip the @
-	at_count = 0;
-	prev_char = '\0';
-
-	// Validate domain part
-	for (; *p; p++)
-	{
-		domain_len++;
-
-		// Check for valid characters in domain
-		if (!isalnum(*p) && *p != '.' && *p != '-')
-			return 0;
-
-		// Can't start with dot or hyphen
-		if (domain_len == 1 && (*p == '.' || *p == '-'))
-			return 0;
-
-		// Can't have consecutive dots
-		if (*p == '.' && prev_char == '.')
-			return 0;
-
-		// Track if we have a dot after @
-		if (*p == '.')
-			dot_after_at = 1;
-
-		prev_char = *p;
-	}
-
-	// Domain must exist, have at least one dot, and can't end with dot or hyphen
-	if (domain_len == 0 || domain_len > 253 || !dot_after_at || prev_char == '.' ||
-	    prev_char == '-')
-		return 0;
-
-	// Check for second @ symbol (invalid)
-	for (p = email; *p; p++)
-	{
-		if (*p == '@')
-		{
-			at_count++;
-			if (at_count > 1)
-				return 0;
-		}
-	}
-
-	return 1;
-}
-
-bool is_email_taken([[maybe_unused]] const char *email)
-{
-#ifdef REQUIRE_EMAIL_VERIFICATION
-	std::ifstream registry(ACCOUNT_EMAIL_DB);
-	if (!registry)
-	{
-		statuslog(56, "Couldn't open Email DB!");
-		return TRUE;
-	}
-
-	std::string registered_email;
-	while (registry >> registered_email)
-	{
-		if (registered_email == email)
-			return TRUE;
-	}
-	if (!registry.eof())
-	{
-		statuslog(56, "Couldn't read Email DB!");
-		return TRUE;
-	}
-#endif
-
-	return FALSE;
-}
 
 void close_account_sessions_named(const char *acct_name, P_desc except, const char *notice)
 {
@@ -498,153 +381,6 @@ void send_account_password_prompt(P_desc d)
 	SEND_TO_Q("Please enter your password: ", d);
 	echo_off(d);
 	STATE(d) = CON_GET_ACCT_PASSWD;
-}
-
-/* Do not let a same-account save capture the old password while its replacement
- * is on the writer. Cleared on the game thread after the transaction replies. */
-static std::unordered_set<std::string> account_recovery_writes;
-
-/* Publish credential changes only after durable storage. Both paths share the
- * same fence so a queued account snapshot cannot restore the old credentials. */
-static void account_apply_credentials(
-	P_acct fresh, const char *new_password, const char *verified_email,
-	const unsigned char expected_fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN],
-	P_desc keep_session, account_recovery_apply_done done)
-{
-	if (!fresh || (!new_password && !verified_email) || !expected_fingerprint)
-		return done(keep_session, account_recovery_apply_outcome::load_failed);
-
-	if (fresh->acct_blocked != 0)
-		return done(keep_session, account_recovery_apply_outcome::fenced);
-
-	unsigned char fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN];
-	account_recovery_credential_fingerprint(fresh->acct_password, fresh->acct_email,
-						fingerprint);
-	const int fingerprint_differs =
-		CRYPTO_memcmp(fingerprint, expected_fingerprint, ACCOUNT_RECOVERY_FINGERPRINT_LEN);
-	OPENSSL_cleanse(fingerprint, sizeof(fingerprint));
-	if (fingerprint_differs != 0)
-		return done(keep_session, account_recovery_apply_outcome::superseded);
-
-	const std::string owner_name = fresh->acct_name;
-	const bool changing_email = verified_email != nullptr;
-	const std::string password = new_password ? new_password : "";
-	const std::string email = verified_email ? verified_email : "";
-	const auto finish = [owner_name, password, email, changing_email,
-			     done](P_desc requester, account_recovery_apply_outcome outcome)
-	{
-		if (outcome == account_recovery_apply_outcome::write_failed)
-		{
-			statuslog(56, "&+RALERT&n: account recovery save failed");
-			persistence_alert(AVATAR, "account", "redacted", "none", "none",
-					  "write_failed", NULL);
-		}
-		if (outcome == account_recovery_apply_outcome::ok)
-		{
-			for (P_desc session = descriptor_list; session; session = session->next)
-				if (session->account && session->account->acct_name &&
-				    !strcasecmp(owner_name.c_str(), session->account->acct_name))
-				{
-					char **value = changing_email ?
-							       &session->account->acct_email :
-							       &session->account->acct_password;
-					if (*value)
-						FREE(*value);
-					*value = str_dup(changing_email ? email.c_str() :
-									  password.c_str());
-				}
-			if (!changing_email)
-				close_account_sessions_named(
-					owner_name.c_str(), requester,
-					"\r\nThe password for this account was just reset from another connection. "
-					"Disconnecting.\r\n");
-		}
-		done(requester, outcome);
-	};
-
-	char canonical[ACCOUNT_RECOVERY_NAME_BUF];
-	if (!account_recovery_canonical_name(owner_name.c_str(), canonical) ||
-	    !account_recovery_writes.insert(canonical).second)
-		return finish(keep_session, account_recovery_apply_outcome::write_failed);
-
-	const std::string key = canonical;
-	const std::string name = escape_str(owner_name.c_str());
-	const std::string old_password = fresh->acct_password ? fresh->acct_password : "";
-	const std::string old_email = fresh->acct_email ? fresh->acct_email : "";
-	const std::string update =
-		sql_format("UPDATE accounts SET %s='%s' WHERE account_name='%s'",
-			   changing_email ? "email" : "password",
-			   escape_str(changing_email ? email.c_str() : password.c_str()).c_str(),
-			   name.c_str());
-	const uint64_t wait_id = wait_for_writer(keep_session);
-	auto applied = std::make_shared<account_recovery_apply_outcome>(
-		account_recovery_apply_outcome::write_failed);
-	if (!sql_read_work(
-		    [name, old_password, old_email, password, email, changing_email, update,
-		     applied](MYSQL *connection, sql_rows *)
-		    {
-			    *applied = account_recovery_apply_outcome::write_failed;
-			    sql_rows rows;
-			    if (const auto error = sql_select(
-					connection,
-					sql_format("SELECT password,email,blocked FROM accounts "
-						   "WHERE account_name='%s' FOR UPDATE",
-						   name.c_str()),
-					&rows))
-				    return error;
-			    if (rows.empty())
-				    *applied = account_recovery_apply_outcome::load_failed;
-			    else if (rows[0][2] && atoi(rows[0][2]) != 0)
-				    *applied = account_recovery_apply_outcome::fenced;
-			    else if (changing_email &&
-				     old_password != (rows[0][0] ? rows[0][0] : ""))
-				    *applied = account_recovery_apply_outcome::superseded;
-			    else if (changing_email && email == (rows[0][1] ? rows[0][1] : ""))
-				    *applied = account_recovery_apply_outcome::ok;
-			    else if (old_email != (rows[0][1] ? rows[0][1] : ""))
-				    *applied = account_recovery_apply_outcome::superseded;
-			    /* Recovery opts into replay after a lost COMMIT reply. This exact
-			     * salted hash identifies an already-applied retry. */
-			    else if (!changing_email && password == (rows[0][0] ? rows[0][0] : ""))
-				    *applied = account_recovery_apply_outcome::ok;
-			    else if (old_password != (rows[0][0] ? rows[0][0] : ""))
-				    *applied = account_recovery_apply_outcome::superseded;
-			    else
-			    {
-				    if (const auto error = sql_execute(connection, update))
-					    return error;
-				    *applied = account_recovery_apply_outcome::ok;
-			    }
-			    return 0U;
-		    },
-		    [key, wait_id, applied, finish](bool ok, const sql_rows &)
-		    {
-			    account_recovery_writes.erase(key);
-			    finish(writer_replied(wait_id),
-				   ok ? *applied : account_recovery_apply_outcome::write_failed);
-		    },
-		    true))
-	{
-		account_recovery_writes.erase(key);
-		finish(writer_replied(wait_id), account_recovery_apply_outcome::write_failed);
-	}
-}
-
-void account_apply_recovered_password(
-	P_acct fresh, const char *bcrypt_hash,
-	const unsigned char expected_fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN],
-	P_desc keep_session, account_recovery_apply_done done)
-{
-	account_apply_credentials(fresh, bcrypt_hash, nullptr, expected_fingerprint, keep_session,
-				  done);
-}
-
-void account_apply_verified_email(
-	P_acct fresh, const char *email,
-	const unsigned char expected_fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN],
-	P_desc keep_session, account_recovery_apply_done done)
-{
-	account_apply_credentials(fresh, nullptr, email, expected_fingerprint, keep_session, done);
 }
 
 void select_accountname(P_desc d, char *arg)
@@ -1081,9 +817,6 @@ void verify_new_account_password(P_desc d, char *arg)
 							      "none", "write_failed",
 							      "auto-confirm save failed");
 				    }
-				    else
-					    account_recovery_invalidate(
-						    completed_desc->account->acct_name);
 			    }
 			    return;
 		    }))
@@ -1099,10 +832,6 @@ void account_create(P_desc d, std::function<void(P_desc, bool)> done)
 	P_acct account = d->account;
 	if (!account || !account->acct_name || !account->acct_password || !*account->acct_password)
 		return done(d, false);
-	// Keep the legacy in-memory field empty until recovery code is removed.
-	if (account->acct_email)
-		FREE(account->acct_email);
-	account->acct_email = str_dup("");
 	account->acct_confirmed = 1;
 	const std::string name = escape_str(account->acct_name);
 	const std::string password = account->acct_password;
@@ -3079,7 +2808,6 @@ static void complete_account_deletion(P_desc d)
 				    }
 				    account_rewards_forget_account(account_name.c_str());
 				    polls_forget_account(account_name.c_str());
-				    account_recovery_forget(account_name.c_str());
 			    }
 			    if (P_desc reader = writer_replied(id))
 				    finish_account_deletion(reader, deleted, identities.size());
@@ -3158,7 +2886,6 @@ static void copy_account(P_acct to, const struct acct_entry *from)
 	clear_account(to);
 	to->next = next;
 	to->acct_name = str_dup(from->acct_name ? from->acct_name : "");
-	to->acct_email = str_dup(from->acct_email ? from->acct_email : "");
 	to->acct_password = str_dup(from->acct_password ? from->acct_password : "");
 	to->acct_confirmation = str_dup(from->acct_confirmation ? from->acct_confirmation : "");
 
@@ -3246,10 +2973,6 @@ int write_account(P_acct acct) // returns -1 if error, 1 if no errors
 	if (!acct)
 		return -1;
 
-	char recovery_name[ACCOUNT_RECOVERY_NAME_BUF];
-	if (account_recovery_canonical_name(acct->acct_name, recovery_name) &&
-	    account_recovery_writes.count(recovery_name))
-		return -1;
 	if (!sql_save_account(acct))
 	{
 		logit(LOG_FILE, "sql_save_account failed");
@@ -3297,7 +3020,6 @@ void clear_account(P_acct acct)
 	struct acct_chars *next_char = NULL;
 
 	acct->acct_name = check_and_clear(acct->acct_name);
-	acct->acct_email = check_and_clear(acct->acct_email);
 	acct->acct_password = check_and_clear(acct->acct_password);
 	acct->acct_confirmation = check_and_clear(acct->acct_confirmation);
 
