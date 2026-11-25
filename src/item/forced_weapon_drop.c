@@ -88,13 +88,15 @@ forced_weapon_drop_result forced_weapon_drop(P_char actor, P_obj weapon,
 		announce_recovery(actor, weapon, room, cause);
 		return forced_weapon_drop_result::rejected;
 	}
+	const uint64_t uid = weapon->obj_uid;
 	if (IS_PC(actor))
 		obj_to_room_dropped(weapon, room);
 	else
 		obj_to_room(weapon, room);
+	weapon = find_live_object(weapon, uid);
 	if (IS_PC(actor))
 	{
-		if (weapon->obj_uid && OBJ_ROOM(weapon))
+		if (uid && OBJ_ROOM(weapon))
 			redis_log_floor_drop(weapon, world[weapon->loc.room].number);
 		mark_player_dirty_components(GET_PID(actor), PLAYER_COMPONENT_STATUS |
 								     PLAYER_COMPONENT_EQUIPMENT |
@@ -102,6 +104,7 @@ forced_weapon_drop_result forced_weapon_drop(P_char actor, P_obj weapon,
 	}
 	char_light(actor);
 	room_light(room, REAL);
-	announce_drop(actor, weapon, room, cause);
+	if (weapon)
+		announce_drop(actor, weapon, room, cause);
 	return forced_weapon_drop_result::dropped;
 }
