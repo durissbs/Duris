@@ -253,8 +253,8 @@ class DocumentationContractTest(unittest.TestCase):
             )
         )
 
-        for toggle in ("REDIS", "REDIS_DONATION_SUBSCRIBER"):
-            self.assertEqual(assignments.get(toggle), "TRUE", toggle)
+        self.assertEqual(assignments.get("REDIS"), "TRUE")
+        self.assertEqual(assignments.get("REDIS_DONATION_SUBSCRIBER"), "FALSE")
         # World recovery is a switch a server turns on, at ten minutes; the maximum age
         # is left to follow the interval.
         self.assertEqual(assignments.get("REDIS_WORLD_STATE"), "FALSE")

@@ -50,7 +50,6 @@ for token in ("DB_HOST_DEFAULT", "DB_USER_DEFAULT", "DB_PASSWD_DEFAULT", "DB_NAM
     if token in sql_header:
         failures.append(f"src/sql/sql.h restores compiled database default {token}")
 
-# Account recovery mail: the SMTP credential comes from the environment only, is read in
 # exactly one translation unit, and the libcurl surface can neither print error prose nor
 # weaken certificate verification.
 MAIL_SENDER = "src/net/mail_sender.c"

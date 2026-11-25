@@ -7059,7 +7059,7 @@
       "locator": "Accounts/email.db",
       "data_category": "personal_or_mixed_durable_store",
       "data_subject_key": "account_email",
-      "technical_purpose": "Optional REQUIRE_EMAIL_VERIFICATION registration/uniqueness registry read and appended by account.c; retained with preserved accounts, independent of character assets.",
+      "technical_purpose": "Retired email registry; legacy inventory only, never read or written by the game. Do not restore or export addresses.",
       "controller_decision": {
         "status": "pending",
         "reference": "PENDING-CONTROLLER-DECISION"

@@ -19,6 +19,8 @@ assert "insert into accounts (account_name, password, confirmation_code" in save
 assert "select account_name, NULL, password, confirmation_code" in save
 assert "email='%s'" not in save
 assert "account_recovery_init()" not in comm
+assert "acct_email" not in source("account.h").read_text()
+assert "account_recovery.o" not in (source("account.c").parents[1] / "Makefile").read_text()
 
 for command in ("change_email", "confirm_email", "request_reset", "complete_reset"):
     body = extract_function("ws_handlers.c", f"void ws_cmd_{command}(")
