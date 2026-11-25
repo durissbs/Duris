@@ -448,8 +448,8 @@ void send_msp_group(P_char ch, bool force)
 			const bool move_max_changed = now.max_moves != last.max_moves;
 			const bool hp_changed = significant(now.hit, last.hit, now.max_hit);
 			const bool mv_changed = significant(now.moves, last.moves, now.max_moves);
-			if (replaced || renamed || room_changed || hp_max_changed || move_max_changed ||
-			    hp_changed || mv_changed || critical_loss)
+			if (replaced || renamed || room_changed || hp_max_changed ||
+			    move_max_changed || hp_changed || mv_changed || critical_loss)
 			{
 				changed = true;
 				break;
