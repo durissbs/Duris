@@ -88,7 +88,10 @@ forced_weapon_drop_result forced_weapon_drop(P_char actor, P_obj weapon,
 		announce_recovery(actor, weapon, room, cause);
 		return forced_weapon_drop_result::rejected;
 	}
-	obj_to_room(weapon, room);
+	if (IS_PC(actor))
+		obj_to_room_dropped(weapon, room);
+	else
+		obj_to_room(weapon, room);
 	if (IS_PC(actor))
 	{
 		if (weapon->obj_uid && OBJ_ROOM(weapon))
