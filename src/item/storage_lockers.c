@@ -4293,6 +4293,16 @@ bool personal_locker_in_use(const char *char_name)
 	return lockerName_is_inuse(locker_name) > 0 || locker_async_name_busy(locker_name);
 }
 
+bool account_locker_in_use(const char *account_name, int racewar)
+{
+	char locker_name[MAX_STRING_LENGTH];
+
+	snprintf(locker_name, sizeof(locker_name), "account.%s.%d.locker", account_name, racewar);
+	for (char *c = locker_name; *c; ++c)
+		*c = LOWER(*c);
+	return lockerName_is_inuse(locker_name) > 0 || locker_async_name_busy(locker_name);
+}
+
 void StorageLocker::SortIValues(void)
 {
 	if (m_bIValue)

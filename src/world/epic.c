@@ -2275,45 +2275,42 @@ void do_epic_reset(P_char ch, char *arg, int /*cmd*/)
 		logit(LOG_WIZ, "Failed to save %s after epic reset refund.", GET_NAME(t_ch));
 }
 
+bool epic_skill_refund_value(P_char ch, int skl, int *points, int *coins)
+{
+	int er_skl, learned;
+	const int multiplier_step = get_property("epic.progressFactor", 30) / 10;
+
+	*points = *coins = 0;
+	if (!IS_EPIC_SKILL(skl) || isname(skills[skl].name, "forge mine craft"))
+		return false;
+	if ((learned = (GET_CHAR_SKILL(ch, skl) / 10)) == 0)
+		return false;
+	for (er_skl = 0; epic_rewards[er_skl].type; er_skl++)
+		if (epic_rewards[er_skl].value == skl)
+			break;
+	if (!epic_rewards[er_skl].type)
+		return false;
+	while (learned-- > 0)
+	{
+		const int cost_multiplier = 1 + learned / multiplier_step;
+		*points += cost_multiplier * epic_rewards[er_skl].points_cost * 3;
+		*coins += cost_multiplier * epic_rewards[er_skl].coins * 2;
+	}
+	return true;
+}
+
 void refund_epic_skills(P_char ch)
 {
-	int skl, er_skl, learned, cost_multiplier, multiplier_step;
 	int point_refund = 0;
 	int coins_refund = 0;
 
-	point_refund = coins_refund = 0;
-	multiplier_step = get_property("epic.progressFactor", 30) / 10;
-
-	for (skl = FIRST_SKILL; skl <= LAST_SKILL; skl++)
+	for (int skl = FIRST_SKILL; skl <= LAST_SKILL; skl++)
 	{
-		if (!IS_EPIC_SKILL(skl))
+		int points, coins;
+		if (epic_skill_refund_value(ch, skl, &points, &coins))
 		{
-			continue;
-		}
-		if (isname(skills[skl].name, "forge mine craft"))
-		{
-			continue;
-		}
-		if ((learned = (GET_CHAR_SKILL(ch, skl) / 10)) == 0)
-		{
-			continue;
-		}
-		for (er_skl = 0; epic_rewards[er_skl].type; er_skl++)
-		{
-			if (epic_rewards[er_skl].value == skl)
-			{
-				break;
-			}
-		}
-		if (!epic_rewards[er_skl].type)
-		{
-			continue;
-		}
-		while (learned-- > 0)
-		{
-			cost_multiplier = 1 + learned / multiplier_step;
-			point_refund += cost_multiplier * epic_rewards[er_skl].points_cost * 3;
-			coins_refund += cost_multiplier * epic_rewards[er_skl].coins * 2;
+			point_refund += points;
+			coins_refund += coins;
 		}
 	}
 	if (!point_refund)

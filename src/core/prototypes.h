@@ -704,6 +704,7 @@ void concat_which_flagsde(const char *flagType, const flagDef flagNames[], char 
 void do_account(P_char ch, char *arg, int cmd);
 #endif
 void do_newchar(P_char ch, char *arg, int cmd);
+void do_sideswap(P_char ch, char *arg, int cmd);
 void do_protocol(P_char ch, char *arg, int cmd);
 char *food_modifiers(P_obj food);
 
@@ -750,6 +751,7 @@ bool add_owned_artifact(P_obj, P_char, long unsigned);
 int remove_owned_artifact(P_obj, P_char, int);
 int get_current_artifact_info(int, int, char *, int *, time_t *, int *, int, time_t *);
 void do_artifact(P_char, char *, int);
+void poof_artifact(P_obj arti);
 void artifact_feed_to_min(P_obj arti, int min_minutes);
 void feed_artifact(P_char ch, P_obj obj, int feed_seconds, int bypass);
 void artifact_switch_check(P_char ch, P_obj obj);
@@ -1099,6 +1101,8 @@ bool check_nevents();
 
 // epic.c
 void refund_epic_skills(P_char ch);
+// What learning ch's epic skill skl cost, in epic points and copper; false when nothing.
+bool epic_skill_refund_value(P_char ch, int skl, int *points, int *coins);
 
 /* ferryact.c */
 bool is_ferry_object(P_obj);
@@ -2125,6 +2129,7 @@ bool locker_container_access_allowed(P_char actor, P_obj container);
 bool locker_leave_for_extraction(P_char ch);
 void locker_return_norent_items(P_char ch);
 bool personal_locker_in_use(const char *char_name);
+bool account_locker_in_use(const char *account_name, int racewar);
 void for_debug_print_char_list(P_char ch);
 
 /* mount.c */
