@@ -46,7 +46,6 @@
 #include <time.h>
 #include "account/account.h"
 #include "account/kept_character_recovery.h"
-#include "account/account_recovery.h"
 #include "world/achievements.h"
 #include "guild/assocs.h"
 #include "world/epic.h"
@@ -4460,21 +4459,8 @@ void nanny(P_desc d, char *arg)
 	case CON_GET_ACCT_PASSWD:
 		get_account_password(d, arg);
 		break;
-		/*
-			  case CON_IS_ACCT_CONFIRMED:
-			        echo_on(d);
-			        if(is_account_confirmed(d)) {
-			                display_account_menu(d, NULL);
-			                STATE(d) = CON_DISPLAY_ACCT_MENU;
-			        } else {
-			                confirm_account(d, NULL);
-			                STATE(d) = CON_CONFIRM_ACCT;
-			        }
-			        break;
-			        */
-
 	case CON_CONFIRM_ACCT:
-		confirm_account(d, arg);
+		STATE(d) = CON_FLUSH;
 		break;
 
 	case CON_VERIFY_NEW_ACCT_NAME:
@@ -4482,11 +4468,9 @@ void nanny(P_desc d, char *arg)
 		break;
 
 	case CON_GET_NEW_ACCT_EMAIL:
-		get_new_account_email(d, arg);
-		break;
-
 	case CON_VERIFY_NEW_ACCT_EMAIL:
-		verify_new_account_email(d, arg);
+		STATE(d) = CON_GET_NEW_ACCT_PASSWD;
+		get_new_account_password(d, NULL);
 		break;
 
 	case CON_GET_NEW_ACCT_PASSWD:
@@ -4522,7 +4506,8 @@ void nanny(P_desc d, char *arg)
 		break;
 
 	case CON_ACCT_CHANGE_EMAIL:
-		get_new_account_email(d, arg);
+		STATE(d) = CON_DISPLAY_ACCT_MENU;
+		display_account_menu(d, NULL);
 		break;
 
 	case CON_ACCT_CHANGE_PASSWD:
@@ -4552,15 +4537,9 @@ void nanny(P_desc d, char *arg)
 		break;
 
 	case CON_ACCT_RESET_CODE:
-		account_recovery_enter_code(d, arg);
-		break;
-
 	case CON_ACCT_RESET_NEWPW:
-		account_recovery_new_password(d, arg);
-		break;
-
 	case CON_ACCT_RESET_NEWPW2:
-		account_recovery_verify_new_password(d, arg);
+		send_account_password_prompt(d);
 		break;
 
 		/* Name confirm for new player */

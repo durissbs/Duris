@@ -11,8 +11,8 @@ SRC = ROOT / "src"
 
 # Every expensive interactive path must be wired to the adapter. Runtime checks
 # below use its real descriptor lifecycle, bounded worker, and foreground-thread bcrypt guard.
-for path in ("account/account.c", "account/account_recovery_nanny.c",
-             "net/ws_handlers.c", "item/storage_lockers.c", "sql/sql_player.c"):
+for path in ("account/account.c", "net/ws_handlers.c",
+             "item/storage_lockers.c", "sql/sql_player.c"):
     text = (SRC / path).read_text()
     assert "bcrypt_hash_password(" not in text, path
     assert "bcrypt_verify_password(" not in text, path

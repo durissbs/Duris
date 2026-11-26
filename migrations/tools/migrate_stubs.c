@@ -611,16 +611,13 @@ bool sql_save_account(struct acct_entry *acc)
 		return false;
 
 	char *esc_name = sql_escape_string(acc->acct_name);
-	char *esc_email = sql_escape_string(acc->acct_email ? acc->acct_email : "");
 	char *esc_pass = sql_escape_string(acc->acct_password ? acc->acct_password : "");
 	char *esc_conf = sql_escape_string(acc->acct_confirmation ? acc->acct_confirmation : "");
 
-	if (!esc_name || !esc_email || !esc_pass || !esc_conf)
+	if (!esc_name || !esc_pass || !esc_conf)
 	{
 		if (esc_name)
 			free(esc_name);
-		if (esc_email)
-			free(esc_email);
 		if (esc_pass)
 			free(esc_pass);
 		if (esc_conf)
@@ -631,24 +628,22 @@ bool sql_save_account(struct acct_entry *acc)
 	char query[2048];
 	snprintf(
 		query, sizeof(query),
-		"insert into accounts (account_name, email, password, confirmation_code, "
+		"insert into accounts (account_name, password, confirmation_code, "
 		"confirmed, confirmation_sent, blocked, last_login, last_good_char, last_evil_char, "
-		"flags1, flags2, flags3, flags4) values ('%s', '%s', '%s', '%s', %d, %d, %d, FROM_UNIXTIME(NULLIF(%ld,0)), FROM_UNIXTIME(NULLIF(%ld,0)), FROM_UNIXTIME(NULLIF(%ld,0)), %lu, %lu, %lu, %lu)"
-		"on duplicate key update email='%s', password='%s', confirmation_code='%s', "
+		"flags1, flags2, flags3, flags4) values ('%s', '%s', '%s', %d, %d, %d, FROM_UNIXTIME(NULLIF(%ld,0)), FROM_UNIXTIME(NULLIF(%ld,0)), FROM_UNIXTIME(NULLIF(%ld,0)), %lu, %lu, %lu, %lu)"
+		"on duplicate key update password='%s', confirmation_code='%s', "
 		"confirmed=%d, confirmation_sent=%d, blocked=%d, last_login=FROM_UNIXTIME(NULLIF(%ld,0)), last_good_char=FROM_UNIXTIME(NULLIF(%ld,0)), last_evil_char=FROM_UNIXTIME(NULLIF(%ld,0)),"
 		"flags1=%lu, flags2=%lu, flags3=%lu, flags4=%lu",
-		esc_name, esc_email, esc_pass, esc_conf, acc->acct_confirmed,
-		acc->acct_confirmation_sent, acc->acct_blocked, acc->acct_last, acc->acct_good,
-		acc->acct_evil, acc->acct_flags1, acc->acct_flags2, acc->acct_flags3,
-		acc->acct_flags4, esc_email, esc_pass, esc_conf, acc->acct_confirmed,
-		acc->acct_confirmation_sent, acc->acct_blocked, acc->acct_last, acc->acct_good,
-		acc->acct_evil, acc->acct_flags1, acc->acct_flags2, acc->acct_flags3,
-		acc->acct_flags4);
+		esc_name, esc_pass, esc_conf, acc->acct_confirmed, acc->acct_confirmation_sent,
+		acc->acct_blocked, acc->acct_last, acc->acct_good, acc->acct_evil, acc->acct_flags1,
+		acc->acct_flags2, acc->acct_flags3, acc->acct_flags4, esc_pass, esc_conf,
+		acc->acct_confirmed, acc->acct_confirmation_sent, acc->acct_blocked, acc->acct_last,
+		acc->acct_good, acc->acct_evil, acc->acct_flags1, acc->acct_flags2,
+		acc->acct_flags3, acc->acct_flags4);
 
 	if (!sql_run_query(query))
 	{
 		free(esc_name);
-		free(esc_email);
 		free(esc_pass);
 		free(esc_conf);
 		return false;
@@ -719,7 +714,6 @@ bool sql_save_account(struct acct_entry *acc)
 	}
 
 	free(esc_name);
-	free(esc_email);
 	free(esc_pass);
 	free(esc_conf);
 

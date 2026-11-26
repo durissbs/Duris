@@ -3406,8 +3406,9 @@ void do_drop(P_char ch, char *argument, int cmd)
 					tmp_object = find_live_object(tmp_object, uid);
 					if (IS_PC(ch) && uid && OBJ_ROOM(tmp_object))
 					{
-						const int room_vnum = world[tmp_object->loc.room].number;
-						redis_log_floor_drop(tmp_object, room_vnum);
+						const int rnum = tmp_object->loc.room;
+						const int vnum = world[rnum].number;
+						redis_log_floor_drop(tmp_object, vnum);
 					}
 					dropped_any = true;
 

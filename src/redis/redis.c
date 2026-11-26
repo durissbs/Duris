@@ -117,23 +117,7 @@ bool redis_init(void)
 		return false;
 	}
 	redis_donation_runtime_set_enabled(false);
-	const char *donation_secret = NULL;
-	const char *donation_env = getenv("REDIS_DONATION_SUBSCRIBER");
-	if (donation_env && strcasecmp(donation_env, "TRUE") == 0)
-	{
-		const char *secret = getenv("REDIS_DONATION_SECRET");
-		if (secret && strlen(secret) >= 32)
-		{
-			redis_donation_runtime_set_enabled(true);
-			donation_secret = secret;
-		}
-		else
-			logit(LOG_SYS,
-			      "redis: donation subscriber disabled; REDIS_DONATION_SECRET must be at least 32 bytes");
-	}
-
-	if (!redis_runtime_connections_configure(redis_donation_runtime_enabled(),
-						 &redis_connections))
+	if (!redis_runtime_connections_configure(false, &redis_connections))
 	{
 		logit(LOG_SYS, "redis: invalid connection security configuration; Redis disabled");
 		redis_enabled = false;
@@ -159,19 +143,6 @@ bool redis_init(void)
 	if (!redis_ship_legacy_worker_init(redis_connections.maintenance))
 		logit(LOG_SYS,
 		      "redis: maintenance worker unavailable; retired ship cleanup disabled");
-	if (redis_donation_runtime_enabled())
-	{
-		const redis_donation_worker_config donation_config = { redis_connections.donation,
-								       donation_secret,
-								       redis_donation_channel };
-		if (!redis_donation_worker_init(&donation_config))
-		{
-			redis_donation_runtime_set_enabled(false);
-			logit(LOG_SYS,
-			      "redis: donation worker unavailable; donation subscriber disabled");
-		}
-	}
-
 	const redis_world_runtime_config world_config = {
 		redis_connections.world, redis_key_namespace,	 redis_runtime_epoch,
 		redis_connections.host,	 redis_connections.port, redis_connections.unix_socket,

@@ -79,8 +79,6 @@ static void free_account(struct acct_entry *acct)
 
 	if (acct->acct_name)
 		free(acct->acct_name);
-	if (acct->acct_email)
-		free(acct->acct_email);
 	if (acct->acct_password)
 		free(acct->acct_password);
 	if (acct->acct_confirmation)
@@ -213,9 +211,8 @@ int migrate_accounts_from_files(void)
 			line[strcspn(line, "\r\n")] = 0;
 			acct->acct_name = str_dup(line);
 
+			// Consume the retired email line without storing it.
 			fgets(line, sizeof(line), f);
-			line[strcspn(line, "\r\n")] = 0;
-			acct->acct_email = str_dup(line);
 
 			fgets(line, sizeof(line), f);
 			line[strcspn(line, "\r\n")] = 0;
