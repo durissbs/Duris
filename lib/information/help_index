@@ -1869,10 +1869,11 @@ require legitimate opposing-faction kills. Unaffiliated players may use
 the global trade boon but receive no fabricated racewar objectives.
 EXP and Epic targets must be reachable by both factions and exclude
 hometowns, safe, private, unfinished and unsuitable zones.
-Paths may need a boat or flight; map mountains and cavern walls still block.
-Experience targets use eligible online player levels across both factions. Epic
-targets consider online levels and zone payouts; with nobody online,
-one Epic objective may await future players. Neither restricts entry.
+Routes may need a boat or flight. Experience zones follow eligible online
+levels across both sides. Epic zones need a loaded Epic stone and an Epic
+rating between five below and seventeen above a qualifying player's level.
+When nobody is online, at most one Epic objective waits for players who
+were active in the last 15 minutes. Neither boon restricts entry.
 
 Cargo AND contraband: +25% eligible BASE SALE REVENUE for four real hours.
 The source and destination are drawn at random from every port.
@@ -4893,7 +4894,12 @@ that you drop, bury, hide or sell objects that you do not wish to keep.
 If you feel like getting rid of all the items you are currently
 carrying, you may use the command "drop all."
 
-NOTE: Items left on the ground will not be there after reboots.
+Most loose equipment you drop at the surface of water stays within reach
+for 90 seconds. It starts to sink after 60 seconds. Pick it up before the
+current sweeps it away. Floating items, artifacts, and containers follow
+their usual rules.
+
+Pick up anything you want to keep before you quit or the game restarts.
 ===========================================================================
 See also: GET, TAKE, BURY, HIDE, SELL
 
@@ -29760,3 +29766,67 @@ Chill Touch. Read [[Chill Touch]] for that spell. Cone of Cold is a
 different cold attack with its own weakening effect; read [[Cone of Cold]]
 or type skills info cone of cold for your level's mechanics.
 #
+
+#
+"CONTRABAND"
+Use 'buy contraband <number of crates>' at a port, then 'sell contraband'
+at a port that buys it. To sell only one slot, use 'sell contraband <slot>'.
+You need a ship with room for concealed cargo, alignment below 1000
+and enough ship reputation for the port's goods. Ordinary cargo reduces the
+space available for contraband.
+
+Read [[Boon]] for the bonus on eligible trades and [[Jettison]] to throw
+cargo overboard.
+
+#
+"GROUP SIZE"
+The group-size threshold is 20 players for either racewar side. Adding
+a player uses the leader's side limit. Pet admission has separate rules.
+Read [[Group Cap]] and [[Group]] for group rules and experience sharing.
+
+#
+"ROGUE SPECIALIZATIONS"
+Type 'specialize' to see your choices. Rogues have Assassin and Thief
+choices through normal play. You need level 30, a race eligible for the
+specialization and an appropriate teacher. Your current specialization,
+multiclass status and respecialization timer also affect your choices.
+Read [[Rogue]] and [[Specialization]].
+
+#
+"SUMMON TOTEM"
+Syntax: innate summon totem
+
+Goblins gain this innate at level 26. It calls a spirit totem and replaces
+the last one you summoned. It arrives after a short delay. The innate
+does not impose rest or lag.
+
+The totem gains farsee at level 31, sense life at 36, soulshield at 41,
+10 hit points at 51 and a one-pulse spell bonus at 56. For the details
+at your current level, type 'innate info summon totem'.
+
+#
+"SWAMP SNEAK"
+Swamp Sneak is passive. Kuo-toa gain it at level 1 and Trolls at level 11.
+It hides you from ordinary map viewers while you are in swamp or
+underworld slime terrain. It also lets you cross water in places where
+you would otherwise need a boat.
+
+#
+"RAIDABLE"
+Type 'raid' to check whether you are raidable with your current equipment.
+The game counts qualifying worn items and adjusts the requirement by
+level. Temporary items and equipment from Minor Creation do not count.
+Some spells and exits require raidable status. Read [[Raid]].
+
+#
+"TRADESKILLS"
+Read [[Crafting]] and [[Forging]] for making equipment, [[Mining]] for
+collecting ore and gems, and [[Encrust Stone]] for working with gems.
+Use 'skills' to see what your character can learn or use.
+
+#
+"PROTOCOLS"
+Duris supports several kinds of client output. [[GMCP]] supplies
+structured game updates for compatible clients. [[MSP]] is a terminal
+mode that tags prompts, maps and group frames. Read [[Terminal]] for
+commands that change the terminal mode.

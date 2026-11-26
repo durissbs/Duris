@@ -4,10 +4,42 @@
 &+R                   PWIPE HAPPENED &+YOCT 28TH 1800 UTC!&n
 &+G                     A NEW SEASON OF BLOOD BEGINS&n
 &+W======================================================================&n
-&+WUpdated: November 25, 2026&n
+&+WUpdated: November 27, 2026&n
 
-Welcome back! Loot your enemies' artifacts, then move along.
-Newest first; later updates replace older rules. Longer archive on web.
+Welcome back! Grab dropped gear before it sinks.
+Newest first. The full archive is on the website.
+
+&+R11/27/26&n &+L-&n &+YGrab it before it sinks&n
+&+W----------------------------------------------------------------------&n
+
+&+Y-&n Most loose gear dropped in surface water stays within reach for
+  &+Y90 seconds&n, even after a fumble or disarm. It starts sinking at
+  &+Y60 seconds&n. Pick it up before the current sweeps it away. Floating
+  items, artifacts and containers follow their usual rules. &+C'help drop'&n
+
+&+CDivine Boons&n
+&+Y-&n Experience and Epic boons can select zones reached by boat, portal
+  or through locked doors. Both favor fitting zones they haven't used
+  recently. Epic zones need a loaded stone and a rating from five levels
+  below to seventeen above an eligible player's level.
+&+Y-&n When nobody is online, at most one Epic objective waits for players
+  active in the last &+Y15 minutes&n. With no recent activity, none waits.
+  See &+C'help boon'&n for rewards and eligibility.
+
+&+CClient and account changes&n
+&+Y-&n MSP group panels redraw for changes to membership, names, ranks,
+  room presence or maximum hit points or movement. Small changes to
+  current values accumulate until they reach 5% of maximum. Full
+  recovery and dangerous drops below 25% hit points can update sooner.
+  Use &+C'group'&n for exact current values at any time.
+&+Y-&n Staff can move an entire offline account between Good and Evil.
+  Some possessions and progress stay behind or reset unless staff
+  select options to carry them over. See &+C'help sideswap'&n.
+
+&+CHelp&n
+&+Y-&n New topics cover &+C'help summon totem'&n, &+C'help swamp sneak'&n,
+  &+C'help rogue specializations'&n, &+C'help tradeskills'&n, &+C'help group size'&n,
+  &+C'help contraband'&n, &+C'help raidable'&n and &+C'help protocols'&n.
 
 &+R11/25/26&n &+L-&n &+YLoot the fallen, then move along&n
 &+W----------------------------------------------------------------------&n

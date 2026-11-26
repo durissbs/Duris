@@ -7858,7 +7858,7 @@ Emote, Social Actions, commands
 #0
 
 Drop
-Drop - Last Edited: 2007-04-19 19:17:11 by Unknown
+Drop - Last Edited: 2026-11-26
 ==================================================
 Syntax:        drop <object>
 If you find you no longer need an item, or if you accidentally pick up the
@@ -7867,7 +7867,13 @@ items lying around is messy and causes a lot of game overhead, we suggest
 that you drop, bury, hide or sell objects that you do not wish to keep.
 If you feel like getting rid of all the items you are currently
 carrying, you may use the command "drop all."
-NOTE: Items left on the ground will not be there after reboots.
+
+Most loose equipment you drop at the surface of water stays within reach
+for 90 seconds. It starts to sink after 60 seconds. Pick it up before the
+current sweeps it away. Floating items, artifacts, and containers follow
+their usual rules.
+
+Pick up anything you want to keep before you quit or the game restarts.
 	See also:get ,take ,bury ,hide ,sell
 
 #0
@@ -29218,7 +29224,7 @@ Warding Faith, Healer
 #0
 
 Boon
-Boon - Last Edited: 2026-10-23 00:30:00 by Duris
+Boon - Last Edited: 2026-11-26
 ===========================================================================
 Syntax: boon [list]
 
@@ -29253,10 +29259,11 @@ durations and reward multipliers, creating shared racewar hotspots.
 Unaffiliated players may use trade boons but have no racewar objectives.
 New Experience and Epic targets must be accessible to both racewar sides
 and exclude hometown, safe, private, unfinished or unsuitable zones.
-Paths may need a boat or flight; map mountains and cavern walls still block.
-Experience zones fit online levels across both factions; Epic selections
-consider those levels and eligible live Epic stones. A server with no
-players may maintain one waiting Epic objective. Neither restricts entry.
+Routes may need a boat or flight. Experience zones fit online levels
+across both factions. Epic zones need a loaded Epic stone and an Epic
+rating between five below and seventeen above a qualifying player's level.
+When nobody is online, at most one Epic objective waits for players who
+were active in the last 15 minutes. Neither boon restricts entry.
 
 Cargo AND contraband: +25% eligible BASE SALE REVENUE for four real hours.
 The source and destination are drawn at random from every port.
@@ -29283,7 +29290,7 @@ See also: EXPERIENCE, EPIC, FRAG, SHIP CARGO, DIVINEBOON
 #0
 
 Divine Boons
-Divine Boons - Last Edited: 2026-10-23 00:30:00 by Duris
+Divine Boons - Last Edited: 2026-11-26
 ===========================================================================
 Syntax: boon [list]
 
@@ -29318,10 +29325,11 @@ durations and reward multipliers, creating shared racewar hotspots.
 Unaffiliated players may use trade boons but have no racewar objectives.
 New Experience and Epic targets must be accessible to both racewar sides
 and exclude hometown, safe, private, unfinished or unsuitable zones.
-Paths may need a boat or flight; map mountains and cavern walls still block.
-Experience zones fit online levels across both factions; Epic selections
-consider those levels and eligible live Epic stones. A server with no
-players may maintain one waiting Epic objective. Neither restricts entry.
+Routes may need a boat or flight. Experience zones fit online levels
+across both factions. Epic zones need a loaded Epic stone and an Epic
+rating between five below and seventeen above a qualifying player's level.
+When nobody is online, at most one Epic objective waits for players who
+were active in the last 15 minutes. Neither boon restricts entry.
 
 Cargo AND contraband: +25% eligible BASE SALE REVENUE for four real hours.
 The source and destination are drawn at random from every port.
