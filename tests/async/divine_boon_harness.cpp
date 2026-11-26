@@ -35,6 +35,51 @@ size_t occupied(const divine_boon_state &state)
 	return count;
 }
 
+bool choose_for_regeneration(const divine_boon_state &state, int64_t,
+                             divine_boon_category only, std::vector<divine_boon_slot> *choices)
+{
+	if (only != divine_boon_category::none && only != divine_boon_category::experience)
+		return false;
+	choices->push_back(zone(divine_boon_category::experience, 1000 + state.next_id,
+				1000 + state.next_id));
+	return true;
+}
+
+void regeneration()
+{
+	auto state = activated();
+	auto exp = zone(divine_boon_category::experience, 10, 10);
+	assert(divine_boon_rotate(&state, H, &exp));
+	divine_boon_slot pvp;
+	pvp.category = divine_boon_category::pvp;
+	assert(divine_boon_rotate(&state, 2 * H, &pvp));
+	const auto before = state;
+	assert(divine_boon_regenerate(&state, 0, 2 * H + 1, choose_for_regeneration));
+	assert(state.revision == before.revision + 1 && state.last_opportunity == 2 * H);
+	assert(state.slots[0].id == before.next_id && state.slots[0].category == exp.category);
+	assert(state.slots[1] == before.slots[1] && state.recent.back().objective == before.slots[0]);
+	const auto single = state;
+	assert(!divine_boon_regenerate(&state, 1, 2 * H + 1, choose_for_regeneration));
+	assert(!divine_boon_regenerate(&state, 7, 2 * H + 1, choose_for_regeneration));
+	assert(state == single);
+	assert(divine_boon_regenerate(&state, DIVINE_BOON_SLOTS, 2 * H + 1,
+				      choose_for_regeneration));
+	assert(state.revision == single.revision + 1 && occupied(state) == 4);
+	assert(state.slots[1] == single.slots[1]);
+	// Repeated same-hour staff rerolls must not overflow the bounded history.
+	for (int i = 0; i < 40; ++i)
+		assert(divine_boon_regenerate(&state, 0, 2 * H + 1, choose_for_regeneration));
+	assert(state.history.size() == DIVINE_BOON_HISTORY_MAX);
+	std::vector<uint8_t> bytes;
+	divine_boon_state restored;
+	assert(divine_boon_state_encode(state, &bytes));
+	assert(divine_boon_state_decode(bytes, &restored) && restored == state);
+	assert(divine_boon_set_paused(&state, true, 2 * H + 1));
+	const auto paused = state;
+	assert(!divine_boon_regenerate(&state, 0, 2 * H + 1, choose_for_regeneration));
+	assert(state == paused);
+}
+
 void season_reset()
 {
 	auto state = activated();
@@ -373,6 +418,7 @@ void snapshots_and_invalid_state()
 int main()
 {
 	season_reset();
+	regeneration();
 	rotation();
 	targets_and_categories();
 	pause_restart_and_clock();

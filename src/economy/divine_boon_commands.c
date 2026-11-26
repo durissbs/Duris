@@ -350,6 +350,27 @@ void do_divineboon(P_char ch, char *argument, int /*cmd*/)
 			changed = divine_boon_replace(&next, static_cast<size_t>(index - 1), now,
 						      divine_boon_shared_target_zone);
 	}
+	else if (!strcmp(verb, "regenerate") && !*extra)
+	{
+		size_t slot = DIVINE_BOON_SLOTS;
+		if (*value)
+		{
+			char *end = nullptr;
+			const long index = strtol(value, &end, 10);
+			if (!end || *end || index < 1 || index > static_cast<long>(DIVINE_BOON_SLOTS))
+			{
+				send_to_char("Usage: divineboon regenerate [slot 1-8]\r\n", ch);
+				return;
+			}
+			slot = static_cast<size_t>(index - 1);
+		}
+		changed = divine_boon_regenerate_selection(&next, slot, now);
+		if (!changed)
+		{
+			send_to_char("No regeneration: check pause, mode, slot and eligible targets.\r\n", ch);
+			return;
+		}
+	}
 	else if (!strcmp(verb, "force") && !*value)
 	{
 		divine_boon_selection_pulse(now);
@@ -366,7 +387,8 @@ void do_divineboon(P_char ch, char *argument, int /*cmd*/)
 	else
 	{
 		send_to_char(
-			"Usage: divineboon status|pause|resume|replace <slot>|force|history\r\n",
+			"Usage: divineboon status|pause|resume|replace <slot>|force|history\r\n"
+			"       divineboon regenerate [slot 1-8]\r\n",
 			ch);
 		return;
 	}
