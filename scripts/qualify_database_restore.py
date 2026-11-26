@@ -28,6 +28,8 @@ def main():
         # separate from persistence_restore.tombstone_preflight(), which
         # validates fresh external evidence and its authority.
         "SELECT COUNT(*) FROM account_erasure_tombstones;",
+        # Retired addresses must not re-enter production through an old database generation.
+        "SELECT COUNT(*) FROM accounts WHERE NULLIF(TRIM(email), '') IS NOT NULL;",
     ]
     for query in queries:
         if executor.sql(query) != "0":

@@ -329,6 +329,26 @@ class BackupReviewRemediationTests(Fixture):
         self.assertIn("SELECT COUNT(*) FROM account_erasure_tombstones", qualifier)
         self.assertIn("tombstone_preflight", qualifier)
 
+    def test_database_qualification_rejects_retired_account_email(self):
+        import qualify_database_restore as qualifier
+
+        migrations = qualifier.migrations
+        env = {"DB_NAME": "duris_restore", "DB_SOCKET": "/not-connected"}
+        expected_sql = "SELECT COUNT(*) FROM accounts WHERE NULLIF(TRIM(email), '') IS NOT NULL;"
+        with (mock.patch.dict(os.environ, env),
+              mock.patch.object(migrations, "load_manifest"),
+              mock.patch.object(migrations, "validate_applied_prefix", return_value=[]),
+              mock.patch.object(migrations, "MysqlExecutor") as make_executor):
+            executor = make_executor.return_value
+            executor.sql.side_effect = lambda sql: "1" if sql == expected_sql else "0"
+            with self.assertRaisesRegex(RuntimeError, "restore_reconciliation_failed"):
+                qualifier.main()
+            executor.sql.assert_any_call(expected_sql)
+            executor.sql.side_effect = None
+            executor.sql.return_value = "0"
+            with contextlib.redirect_stdout(io.StringIO()):
+                qualifier.main()
+
 
 if __name__ == "__main__":
     unittest.main()
