@@ -37,7 +37,7 @@ static char_data viewer{};
 static bool visible = true;
 static int fail_delay = -1;
 static int floor_room = -1, removed = 0;
-static std::vector<std::string> messages;
+static std::vector<std::string> recorded_water_messages;
 
 struct queued_event {
     event_func callback;
@@ -78,7 +78,7 @@ int number(int, int high) { return high; }
 int distance_from_shore(int) { return 7; }
 bool ac_can_see_obj(P_char, P_obj, int) { return visible; }
 void act(const char *message, int, P_char, P_obj, void *, int) {
-    messages.emplace_back(message);
+    recorded_water_messages.emplace_back(message);
 }
 void artifact_update_location_sql(P_obj) {}
 P_obj find_live_object(P_obj object, uint64_t uid) {
@@ -125,17 +125,17 @@ int main() {
     auto weapon = item();
     obj_to_room_dropped(&weapon, 0);
     assert(OBJ_IN_ROOM(&weapon, 0) && events.size() == 2);
-    assert(messages.size() == 1 && messages.back().find("bobs") != std::string::npos);
+    assert(recorded_water_messages.size() == 1 && recorded_water_messages.back().find("bobs") != std::string::npos);
     dispatch(239);
-    assert(OBJ_IN_ROOM(&weapon, 0) && messages.size() == 1);
+    assert(OBJ_IN_ROOM(&weapon, 0) && recorded_water_messages.size() == 1);
     dispatch(240);
-    assert(OBJ_IN_ROOM(&weapon, 0) && messages.size() == 2);
-    assert(messages.back().find("slowly sink") != std::string::npos);
+    assert(OBJ_IN_ROOM(&weapon, 0) && recorded_water_messages.size() == 2);
+    assert(recorded_water_messages.back().find("slowly sink") != std::string::npos);
     dispatch(359);
     assert(OBJ_IN_ROOM(&weapon, 0));
     dispatch(360);
     assert(OBJ_IN_ROOM(&weapon, 1) && !rooms[0].contents && events.empty());
-    assert(messages.size() == 3 && removed == 0 && floor_room == 31724);
+    assert(recorded_water_messages.size() == 3 && removed == 0 && floor_room == 31724);
     obj_from_room(&weapon);
 
     // Pickup cancels both events, including a pickup after the warning.
@@ -211,11 +211,11 @@ int main() {
     // Hidden items do not reveal themselves in any message.
     fail_delay = -1;
     visible = false;
-    messages.clear();
+    recorded_water_messages.clear();
     obj_to_room_dropped(&weapon, 0);
     dispatch(240);
     dispatch(360);
-    assert(messages.empty() && OBJ_IN_ROOM(&weapon, 1));
+    assert(recorded_water_messages.empty() && OBJ_IN_ROOM(&weapon, 1));
     obj_from_room(&weapon);
 }
 '''.replace("// PRODUCTION", production)
