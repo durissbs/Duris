@@ -199,6 +199,9 @@ class PersistenceRecoveryIntegration(unittest.TestCase):
                      "INSERT INTO currency_bank_baseline(bank_id,opening_copper,opening_silver,opening_gold,opening_platinum) VALUES(1,21,22,23,24);"
                      "INSERT INTO epic_balance_baseline(pid,opening_balance) VALUES(42,15);"
                      "INSERT INTO combat_frag_baseline(pid,opening_frags) VALUES(42,0);")
+            with self.assertRaises(backup.BackupError):
+                restore.database_qualify(env, "test")
+            sql(env, "UPDATE accounts SET email=NULL WHERE account_name='SyntheticRestore';")
             restore.database_qualify(env, "test")
             query = ("SELECT CONCAT(a.account_name,':',p.pid,':',p.copper,':',p.epics,':',b.bank_gold) "
                      "FROM accounts a JOIN player_data p ON p.account_name=a.account_name "
