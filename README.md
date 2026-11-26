@@ -120,8 +120,9 @@ then installs Git, Python, dos2unix, the compiler, GNU Make, GDB, Valgrind,
 clang-format, MariaDB client and server packages, and the XML,
 compression, TLS, JSON, Redis, BSD, libcurl (SMTP), and MariaDB
 development libraries required by the repository. The compiler supplies the
-ASan/UBSan runtimes used by the sanitizer build. Redis itself is optional.
-Account email recovery is retired; staff assist locked-out players.
+ASan/UBSan runtimes used by the sanitizer build. Redis itself is optional, and so
+is the SMTP relay: account password recovery by email stays off unless
+`MAIL_ENABLED=TRUE` is set in `.env`.
 
 On another Linux distribution, use
 [`packaging/duris-build-deps.equivs`](packaging/duris-build-deps.equivs) as the
@@ -162,7 +163,10 @@ challenge-response contract in the
 traffic must terminate TLS at a local reverse proxy. The remaining switches in
 `.env.example` are documented inline and are intended primarily for local gameplay testing.
 
-External donation notices are retired and cannot be enabled by legacy settings.
+The local-development example enables external donation notices with
+`REDIS_DONATION_SUBSCRIBER=TRUE`. Replace its local-only placeholder with an
+independent HMAC key before connecting a publisher; see the
+[donation event envelope](docs/reference/api/donation-events.md).
 
 ### 3. Create a development database
 

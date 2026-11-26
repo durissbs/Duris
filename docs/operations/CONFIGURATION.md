@@ -272,7 +272,7 @@ player-save pipeline.
 | `REDIS_WORLD_STATE_MAX_AGE` | the interval plus `600` seconds | the interval plus `600`, to `86400` | Maximum snapshot age accepted during recovery. A lower setting is raised to the minimum: it could only refuse every generation. |
 | `REDIS_WORLD_STATE_SECRET` | none | `32`-`256` bytes | Independent HMAC key required when world recovery is enabled. It authenticates the manifest and complete generation payload; do not reuse Redis, database, donation, or DurisWeb credentials. |
 | `REDIS_WORLD_STATE_SECRET_PREVIOUS` | empty | `32`-`256` bytes | Optional previous recovery HMAC key accepted only for reading and cleanup during a bounded rotation window. New generations are always signed by the current key. |
-| `REDIS_DONATION_SUBSCRIBER` | disabled | ignored | Retired; no external donation subscription is opened. |
+| `REDIS_DONATION_SUBSCRIBER` | disabled | Exact `TRUE` enables it | Subscribe to authenticated external donation notices. No polling job or subscriber connection exists by default. |
 | `REDIS_DONATION_SECRET` | none | At least 32 bytes | Independent HMAC key required when the donation subscriber is enabled. Do not reuse a Redis, database, or DurisWeb secret. |
 
 ### What world recovery buys and costs
@@ -452,7 +452,7 @@ REDIS_TLS=FALSE
 REDIS_ALLOWED_TARGETS=127.0.0.1:6379/0
 REDIS_WORLD_STATE=FALSE
 REDIS_WORLD_STATE_SECRET=local-development-only-world-state-hmac-change-before-shared-use
-REDIS_DONATION_SUBSCRIBER=FALSE
+REDIS_DONATION_SUBSCRIBER=TRUE
 REDIS_DONATION_SECRET=local-development-only-donation-hmac-change-before-shared-use
 ```
 
@@ -619,9 +619,24 @@ run `./scripts/generate_localhost_cert.sh` to create an ignored machine-local fa
 That fallback is accepted only with the explicit local role and an exact loopback
 listener, and its key must also be owner-controlled and mode `0600` or stricter.
 
-Old browser clients may still send `request_reset`, `complete_reset`,
-`change_email`, or `confirm_email`. All are rejected; there is no email
-collection, verification or password reset. Staff assist locked-out players.
+The WebSocket command table also carries the two account-recovery commands. `request_reset`
+answers an `error` (not available) while the mail feature below is disabled; `complete_reset`
+does not consult the switch and, since no code can exist then, answers `Invalid or expired
+reset code` like any other code failure. `request_reset` takes `{"account": "<name>"}` and
+answers `{"type": "account", "action": "reset_requested"}` for every name that passes the
+length check, whether or not the account exists or a mail was queued (an unknown name is
+charged against the address window exactly like an account without an email address); the
+only other answers are an `error` for a rate-limited address (wait 10 minutes), the shared
+register-bucket `error` (too many requests), an `error` when the feature is disabled, and an
+`auth` failure for a service connection. `complete_reset` takes `{"account": "<name>", "code": "<32 hex digits;
+dashes, spaces, and letter case are ignored>", "newPassword": "<at least 6 characters>"}`
+and answers `{"type": "account", "action": "reset_completed"}` on success, after which the
+client issues an ordinary `login`; every code-related failure is the single `error` text
+`Invalid or expired reset code`, a missing field is `Missing reset fields`, and a short
+password is reported before the code is examined. Both commands sit behind the existing
+register and login rate buckets. Echo control has no meaning on this transport: hiding the
+password field, and rendering the "a code may have been sent; one per account per 10
+minutes" meaning of the telnet text, is the client's job.
 
 ### Connections before an account login
 
@@ -648,14 +663,93 @@ has not logged in anyway: a completed handshake closes the address's older ones.
 
 ## Account recovery mail
 
-Account recovery by email is retired. New accounts use an account name and password;
-old email-related commands return errors regardless of configuration. See
-[staff recovery instructions](ACCOUNT_EMAIL.md).
+A player who has an email address on file can reset a forgotten account password by
+typing `?` at the telnet password prompt, or through the WebSocket `request_reset` and
+`complete_reset` commands above. The server mails a one-time code through libcurl SMTP
+from one bounded worker thread. The feature is off unless `MAIL_ENABLED=TRUE`; while it is
+off the password prompt is unchanged and `?` answers one not-available line.
 
-`MAIL_ENABLED` no longer enables any game feature. `MAIL_HOST`, `MAIL_PORT`,
-`MAIL_TLS`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_FROM` remain operator
-settings for the separate backup alert script, not for player mail. Keep existing
-TLS, credential, and shell-safety requirements for backup alerts.
+With mail enabled, new accounts receive an inbox-ownership challenge on both clients.
+They can log in while verification is pending, but no recovery address is stored until
+the code is redeemed. If mail is unavailable, registration still works and leaves the
+recovery address blank. Existing accounts keep their current address until a replacement
+is verified. To add a missing address, replace an outdated one, or confirm the same inbox,
+use telnet account-menu option **5**, or the browser account **Email** tab. An address
+confirmation typed during registration only checks spelling; ownership requires the
+separate code delivered by email. No confirmation code is displayed by the server.
+
+WebSocket `change_email` takes `{ "newEmail": "player@example.com" }` and replies with
+`account/email_verification_requested` when queued; `confirm_email` takes `{ "code": "..." }`
+and replies with `account/email_changed` only after durable storage. Both require a
+player session authenticated by password. A reset code cannot verify an address, and an
+email-verification code cannot reset a password. These two purposes have separate
+10-minute account cooldowns and share the per-address request budget and bounded store.
+Verification codes use the same 15-minute expiry and five-guess limit as reset codes.
+Delivery failure removes the pending token and allows an immediate retry subject to the
+per-address budget. A definite storage failure preserves the code for retry; meanwhile
+the old recovery address stays unchanged. Changing credentials invalidates older codes.
+
+The browser login panel exposes **Forgot password?**, using the existing reset commands.
+The website login links there because both logins use the same MUD account credentials.
+If mail is disabled, email changes report that verification is unavailable; existing
+accounts can still log in. Accounts created while mail was disabled retain the legacy
+address on file; verify or replace it through the same account-menu path after activation.
+See [player instructions and staff fallback](ACCOUNT_EMAIL.md).
+
+Recovery resets the password; it never retrieves or emails the old password. A successful
+reset requires a saved email address that the player can access. The success reply, code
+consumption and disconnection of other sessions happen only after the password is stored.
+On MariaDB the requesting connection waits asynchronously for COMMIT; the transaction
+rechecks the current password, email and blocked status under a row lock. Same-account
+snapshots are temporarily refused while this write is pending so they cannot restore the
+old password; character departure timestamps are queued separately. A lost COMMIT reply
+keeps the writer and account fenced until a retry reconciles the exact submitted password
+hash. A definite failed write keeps the code usable until its normal expiry, and a
+disconnected requester does not cancel an already submitted write.
+
+| Variable | Requirement | Meaning |
+| --- | --- | --- |
+| `MAIL_ENABLED` | Optional; `TRUE` or `FALSE` (case-insensitive), default `FALSE` | Enable switch for recovery and inbox verification. Unset, empty, or `FALSE` disables them; any other value is rejected. |
+| `MAIL_HOST` | Required when `MAIL_ENABLED=TRUE` | SMTP relay host name or address, 1-253 bytes, accepted by libcurl's URL parser as a bare host (no `/`, `@`, `?`, `#`, or whitespace). Loopback means `localhost`, `127.0.0.1`, or `::1`. |
+| `MAIL_PORT` | Optional; `1`-`65535`, default `587` | SMTP TCP port. `465` selects implicit TLS (`smtps://`); every other port uses `smtp://` with STARTTLS when `MAIL_TLS` is `TRUE`. |
+| `MAIL_TLS` | Optional; `TRUE` or `FALSE` (case-insensitive), default `TRUE` | `TRUE` requires TLS for the whole session (a relay that refuses STARTTLS fails the send; there is no opportunistic mode). `FALSE` is accepted only for a loopback `MAIL_HOST` with no credentials. |
+| `MAIL_USERNAME` | Optional; 1-255 bytes | SMTP AUTH user. Must be set together with `MAIL_PASSWORD`, and credentials require `MAIL_TLS=TRUE`. |
+| `MAIL_PASSWORD` | Optional; 1-255 bytes | SMTP AUTH password. Read once at boot into the worker's private snapshot; never logged; no compiled default exists and the source contracts forbid one. |
+| `MAIL_FROM` | Required when `MAIL_ENABLED=TRUE` | Envelope sender and `From:` header. A plain address that passes both the structural mail check and the account-layer email validation; the text after `@` forms the `Message-ID` domain. |
+
+Validation is fail-closed by category: a rejected or incomplete setting disables the
+feature for the whole run, the server boots normally, and `logs/log/status` names the
+offending key, never its value. Certificate verification uses the system CA bundle and
+cannot be disabled; there is no CA override and no verification switch.
+
+Shell safety: `.env` values are bash-sourced by `scripts/cycle_mud.sh` (`set -a; source
+.env`) and read unquoted by the server's own loader in `src/core/env_file.c` (255-byte
+lines, no quoting or escaping, `setenv(name, value, 0)` so a variable already present in
+the environment wins). Use only shell-safe characters in every `MAIL_*` value -- no
+spaces, quotes, `$`, backticks, `;`, `#`, or `!`. A relay application password is the
+intended shape; the server cannot detect a value that Bash has already reinterpreted.
+
+The controls are compile-time constants in `src/account/account_recovery.h` and are
+deliberately not environment-tunable: a code lives 15 minutes (`ACCOUNT_RECOVERY_TTL_SEC`),
+at most one code is mailed per account every 10 minutes (`ACCOUNT_RECOVERY_COOLDOWN_SEC`),
+a code dies after 5 wrong guesses (`ACCOUNT_RECOVERY_MAX_TOKEN_ATTEMPTS`), a telnet connection is dropped after 5 code attempts
+(`ACCOUNT_RECOVERY_MAX_DESCRIPTOR_ATTEMPTS`; a WebSocket connection is instead refused with the
+uniform code error until it reconnects), and one client address may
+request 5 codes per 10 minutes (`ACCOUNT_RECOVERY_HOST_MAX_REQUESTS` over
+`ACCOUNT_RECOVERY_HOST_WINDOW_SEC`; IPv6 clients are keyed by their /64 prefix). The mail
+queue holds 256 messages and each send is bounded to 10 s connect / 20 s total with no
+retry. The per-address window is keyed by the connection's peer address as the server sees
+it: behind a TCP proxy that does not supply the PROXY protocol, every telnet player shares
+one 5-per-10-minute budget, so such a deployment must raise
+`ACCOUNT_RECOVERY_HOST_MAX_REQUESTS` (a reviewed source change) or accept the shared limit.
+Whether production telnet is proxied is therefore something the operator must know.
+
+Copyover and restart contract: codes, cooldowns, and queued mail live only in process
+memory. A copyover or restart discards them, the player-facing text says so, and the
+player simply requests a new code. Nothing is persisted, so there is no table, file, or
+Redis key to migrate or clean. Operational log lines and the shutdown timing tail are
+described in [RUNBOOK.md](RUNBOOK.md#logs) and
+[RUNBOOK.md](RUNBOOK.md#restart-and-crash-recovery).
 
 ## Diagnostics
 

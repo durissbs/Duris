@@ -13,7 +13,7 @@ import subprocess
 import time
 
 from test_account_recovery_journey import (
-    ACCOUNT, OLD_PASSWORD, IsolatedServer, MudClient,
+    ACCOUNT, OLD_PASSWORD, EMAIL, IsolatedServer, MudClient,
     create_account, enter_account_name, require,
 )
 from test_mariadb_combat_journey import make_overlord
@@ -60,10 +60,10 @@ def require_prompt_framed(client, prompt, timeout=3):
         client._receive()
 
 
-def enter_password(client):
+def enter_email(client):
     enter_account_name(client)
     client.expect("is this correct?")
-    reply(client, "y", PASSWORD_PROMPT)
+    reply(client, "y", "email address:  ")
 
 
 def account_name_retry(client, server):
@@ -73,11 +73,23 @@ def account_name_retry(client, server):
     reply(client, "n", "Account Name: ")
     reply(client, "123", "Account Name: ")
     reply(client, ACCOUNT, "is this correct?")
+    reply(client, "y", "email address:  ")
+
+
+def email_retry(client, server):
+    enter_email(client)
+    reply(client, "bad-email", "Email address:  ")
+    reply(client, "first@example.invalid", "is this correct?")
+    reply(client, "?", "is this correct?")
+    reply(client, "n", "Please enter your email address:  ")
+    reply(client, EMAIL, "is this correct?")
     reply(client, "y", PASSWORD_PROMPT)
 
 
 def password_and_summary_retry(client, server):
-    enter_password(client)
+    enter_email(client)
+    reply(client, EMAIL, "is this correct?")
+    reply(client, "y", PASSWORD_PROMPT)
     # Control: this prompt is queued while handling input, which always framed it.
     require_prompt_framed(client, PASSWORD_PROMPT)
     for invalid in ("", "    ", "abc", "alllowercase"):
@@ -95,6 +107,8 @@ def password_and_summary_retry(client, server):
     reply(client, "n", "Please enter your account name: ")
     # Starting over must not have saved the abandoned registration.
     reply(client, ACCOUNT, "is this correct?")
+    reply(client, "y", "email address:  ")
+    reply(client, EMAIL, "is this correct?")
     reply(client, "y", PASSWORD_PROMPT)
     reply(client, OLD_PASSWORD, CONFIRM_PASSWORD)
     reply(client, OLD_PASSWORD, "Is this information correct?")
@@ -445,6 +459,7 @@ def normal_after_hardcore(client, server):
 
 SCENARIOS = (
     ("account-name rejection", account_name_retry),
+    ("email correction", email_retry),
     ("password mismatch and account-summary restart", password_and_summary_retry),
     ("invalid character name", lambda c, s: character_name_retry(c, s, invalid=True)),
     ("character-name rejection", character_name_retry),

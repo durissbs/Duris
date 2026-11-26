@@ -37,6 +37,7 @@
 #include "core/utils.h"
 #include "core/safe_format.h"
 #include "account/account.h"
+#include "account/account_recovery.h"
 #include "account/account_reward.h"
 #include "account/creation_availability_config.h"
 #include "account/pwipe_launch.h"
@@ -75,8 +76,10 @@
 #include "redis/redis_ship_legacy.h"
 
 #include <unordered_map>
+#include <unordered_set>
 #include <new>
 #include <string>
+#include <fstream>
 #include <utility>
 #include <vector>
 
@@ -343,8 +346,122 @@ bool build_account_load_request(P_desc d, struct acct_chars *c, player_load_requ
 } // namespace
 
 #define ACCT_SERIAL 1
+#define ACCOUNT_EMAIL_DB "Accounts/email.db"
 
 void check_rested_bonus(P_desc);
+
+// Email validation function with strict RFC compliance
+// Returns 1 if valid, 0 if invalid
+int is_valid_email(const char *email)
+{
+	const char *p;
+	int at_count = 0, dot_after_at = 0;
+	int local_len = 0, domain_len = 0;
+	char prev_char = '\0';
+
+	if (!email || !*email)
+		return 0;
+
+	// Find the @ symbol and validate local part
+	for (p = email; *p && *p != '@'; p++)
+	{
+		local_len++;
+
+		// Check for valid characters in local part
+		if (!isalnum(*p) && *p != '.' && *p != '-' && *p != '_' && *p != '+')
+			return 0;
+
+		// Can't start with a dot
+		if (local_len == 1 && *p == '.')
+			return 0;
+
+		// Can't have consecutive dots
+		if (*p == '.' && prev_char == '.')
+			return 0;
+
+		prev_char = *p;
+	}
+
+	// Local part must exist and can't end with dot
+	if (local_len == 0 || local_len > 64 || prev_char == '.')
+		return 0;
+
+	// Must have exactly one @
+	if (*p != '@')
+		return 0;
+
+	p++; // Skip the @
+	at_count = 0;
+	prev_char = '\0';
+
+	// Validate domain part
+	for (; *p; p++)
+	{
+		domain_len++;
+
+		// Check for valid characters in domain
+		if (!isalnum(*p) && *p != '.' && *p != '-')
+			return 0;
+
+		// Can't start with dot or hyphen
+		if (domain_len == 1 && (*p == '.' || *p == '-'))
+			return 0;
+
+		// Can't have consecutive dots
+		if (*p == '.' && prev_char == '.')
+			return 0;
+
+		// Track if we have a dot after @
+		if (*p == '.')
+			dot_after_at = 1;
+
+		prev_char = *p;
+	}
+
+	// Domain must exist, have at least one dot, and can't end with dot or hyphen
+	if (domain_len == 0 || domain_len > 253 || !dot_after_at || prev_char == '.' ||
+	    prev_char == '-')
+		return 0;
+
+	// Check for second @ symbol (invalid)
+	for (p = email; *p; p++)
+	{
+		if (*p == '@')
+		{
+			at_count++;
+			if (at_count > 1)
+				return 0;
+		}
+	}
+
+	return 1;
+}
+
+bool is_email_taken([[maybe_unused]] const char *email)
+{
+#ifdef REQUIRE_EMAIL_VERIFICATION
+	std::ifstream registry(ACCOUNT_EMAIL_DB);
+	if (!registry)
+	{
+		statuslog(56, "Couldn't open Email DB!");
+		return TRUE;
+	}
+
+	std::string registered_email;
+	while (registry >> registered_email)
+	{
+		if (registered_email == email)
+			return TRUE;
+	}
+	if (!registry.eof())
+	{
+		statuslog(56, "Couldn't read Email DB!");
+		return TRUE;
+	}
+#endif
+
+	return FALSE;
+}
 
 void close_account_sessions_named(const char *acct_name, P_desc except, const char *notice)
 {
@@ -378,9 +495,159 @@ void send_account_name_prompt(P_desc d)
 
 void send_account_password_prompt(P_desc d)
 {
-	SEND_TO_Q("Please enter your password: ", d);
+	SEND_TO_Q(account_recovery_enabled() ?
+			  "Please enter your password (or ? to reset it by email): " :
+			  "Please enter your password: ",
+		  d);
 	echo_off(d);
 	STATE(d) = CON_GET_ACCT_PASSWD;
+}
+
+/* Do not let a same-account save capture the old password while its replacement
+ * is on the writer. Cleared on the game thread after the transaction replies. */
+static std::unordered_set<std::string> account_recovery_writes;
+
+/* Publish credential changes only after durable storage. Both paths share the
+ * same fence so a queued account snapshot cannot restore the old credentials. */
+static void account_apply_credentials(
+	P_acct fresh, const char *new_password, const char *verified_email,
+	const unsigned char expected_fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN],
+	P_desc keep_session, account_recovery_apply_done done)
+{
+	if (!fresh || (!new_password && !verified_email) || !expected_fingerprint)
+		return done(keep_session, account_recovery_apply_outcome::load_failed);
+
+	if (fresh->acct_blocked != 0)
+		return done(keep_session, account_recovery_apply_outcome::fenced);
+
+	unsigned char fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN];
+	account_recovery_credential_fingerprint(fresh->acct_password, fresh->acct_email,
+						fingerprint);
+	const int fingerprint_differs =
+		CRYPTO_memcmp(fingerprint, expected_fingerprint, ACCOUNT_RECOVERY_FINGERPRINT_LEN);
+	OPENSSL_cleanse(fingerprint, sizeof(fingerprint));
+	if (fingerprint_differs != 0)
+		return done(keep_session, account_recovery_apply_outcome::superseded);
+
+	const std::string owner_name = fresh->acct_name;
+	const bool changing_email = verified_email != nullptr;
+	const std::string password = new_password ? new_password : "";
+	const std::string email = verified_email ? verified_email : "";
+	const auto finish = [owner_name, password, email, changing_email,
+			     done](P_desc requester, account_recovery_apply_outcome outcome)
+	{
+		if (outcome == account_recovery_apply_outcome::write_failed)
+		{
+			statuslog(56, "&+RALERT&n: account recovery save failed");
+			persistence_alert(AVATAR, "account", "redacted", "none", "none",
+					  "write_failed", NULL);
+		}
+		if (outcome == account_recovery_apply_outcome::ok)
+		{
+			for (P_desc session = descriptor_list; session; session = session->next)
+				if (session->account && session->account->acct_name &&
+				    !strcasecmp(owner_name.c_str(), session->account->acct_name))
+				{
+					char **value = changing_email ?
+							       &session->account->acct_email :
+							       &session->account->acct_password;
+					if (*value)
+						FREE(*value);
+					*value = str_dup(changing_email ? email.c_str() :
+									  password.c_str());
+				}
+			if (!changing_email)
+				close_account_sessions_named(
+					owner_name.c_str(), requester,
+					"\r\nThe password for this account was just reset from another connection. "
+					"Disconnecting.\r\n");
+		}
+		done(requester, outcome);
+	};
+
+	char canonical[ACCOUNT_RECOVERY_NAME_BUF];
+	if (!account_recovery_canonical_name(owner_name.c_str(), canonical) ||
+	    !account_recovery_writes.insert(canonical).second)
+		return finish(keep_session, account_recovery_apply_outcome::write_failed);
+
+	const std::string key = canonical;
+	const std::string name = escape_str(owner_name.c_str());
+	const std::string old_password = fresh->acct_password ? fresh->acct_password : "";
+	const std::string old_email = fresh->acct_email ? fresh->acct_email : "";
+	const std::string update =
+		sql_format("UPDATE accounts SET %s='%s' WHERE account_name='%s'",
+			   changing_email ? "email" : "password",
+			   escape_str(changing_email ? email.c_str() : password.c_str()).c_str(),
+			   name.c_str());
+	const uint64_t wait_id = wait_for_writer(keep_session);
+	auto applied = std::make_shared<account_recovery_apply_outcome>(
+		account_recovery_apply_outcome::write_failed);
+	if (!sql_read_work(
+		    [name, old_password, old_email, password, email, changing_email, update,
+		     applied](MYSQL *connection, sql_rows *)
+		    {
+			    *applied = account_recovery_apply_outcome::write_failed;
+			    sql_rows rows;
+			    if (const auto error = sql_select(
+					connection,
+					sql_format("SELECT password,email,blocked FROM accounts "
+						   "WHERE account_name='%s' FOR UPDATE",
+						   name.c_str()),
+					&rows))
+				    return error;
+			    if (rows.empty())
+				    *applied = account_recovery_apply_outcome::load_failed;
+			    else if (rows[0][2] && atoi(rows[0][2]) != 0)
+				    *applied = account_recovery_apply_outcome::fenced;
+			    else if (changing_email &&
+				     old_password != (rows[0][0] ? rows[0][0] : ""))
+				    *applied = account_recovery_apply_outcome::superseded;
+			    else if (changing_email && email == (rows[0][1] ? rows[0][1] : ""))
+				    *applied = account_recovery_apply_outcome::ok;
+			    else if (old_email != (rows[0][1] ? rows[0][1] : ""))
+				    *applied = account_recovery_apply_outcome::superseded;
+			    /* Recovery opts into replay after a lost COMMIT reply. This exact
+			     * salted hash identifies an already-applied retry. */
+			    else if (!changing_email && password == (rows[0][0] ? rows[0][0] : ""))
+				    *applied = account_recovery_apply_outcome::ok;
+			    else if (old_password != (rows[0][0] ? rows[0][0] : ""))
+				    *applied = account_recovery_apply_outcome::superseded;
+			    else
+			    {
+				    if (const auto error = sql_execute(connection, update))
+					    return error;
+				    *applied = account_recovery_apply_outcome::ok;
+			    }
+			    return 0U;
+		    },
+		    [key, wait_id, applied, finish](bool ok, const sql_rows &)
+		    {
+			    account_recovery_writes.erase(key);
+			    finish(writer_replied(wait_id),
+				   ok ? *applied : account_recovery_apply_outcome::write_failed);
+		    },
+		    true))
+	{
+		account_recovery_writes.erase(key);
+		finish(writer_replied(wait_id), account_recovery_apply_outcome::write_failed);
+	}
+}
+
+void account_apply_recovered_password(
+	P_acct fresh, const char *bcrypt_hash,
+	const unsigned char expected_fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN],
+	P_desc keep_session, account_recovery_apply_done done)
+{
+	account_apply_credentials(fresh, bcrypt_hash, nullptr, expected_fingerprint, keep_session,
+				  done);
+}
+
+void account_apply_verified_email(
+	P_acct fresh, const char *email,
+	const unsigned char expected_fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN],
+	P_desc keep_session, account_recovery_apply_done done)
+{
+	account_apply_credentials(fresh, nullptr, email, expected_fingerprint, keep_session, done);
 }
 
 void select_accountname(P_desc d, char *arg)
@@ -479,13 +746,11 @@ void get_account_password(P_desc d, char *arg)
 		return;
 	}
 
-	/* A lone '?' directs locked-out players to staff without counting a password guess. */
+	/* A lone '?' (trailing whitespace tolerated) asks for a reset by email; it is not
+	 * a password guess.  Every other input reaches the password check untrimmed. */
 	if (arg[0] == '?' && arg[1 + strspn(arg + 1, " \t\r\n")] == '\0')
 	{
-		SEND_TO_Q(
-			"\r\nPassword reset by email is not available on this server. Please contact staff.\r\n",
-			d);
-		send_account_password_prompt(d);
+		account_recovery_begin_from_password_prompt(d);
 		return;
 	}
 
@@ -604,6 +869,7 @@ void display_account_menu(P_desc d, char *arg)
 		SEND_TO_Q("&+R3) Delete a character&n\r\n", d);
 		SEND_TO_Q("\r\n", d);
 		SEND_TO_Q("&+C4) Display account information&n\r\n", d);
+		SEND_TO_Q("&+Y5) Change registered email address&n\r\n", d);
 		SEND_TO_Q("&+Y6) Change account password&n\r\n", d);
 		SEND_TO_Q("&+R7) Delete this account&n\r\n", d);
 		SEND_TO_Q("&+C8) Check rested bonus&n\r\n", d);
@@ -661,6 +927,11 @@ void display_account_menu(P_desc d, char *arg)
 		account_display_info(d, NULL);
 		break;
 
+	case 5:
+		STATE(d) = CON_ACCT_CHANGE_EMAIL;
+		get_new_account_email(d, NULL);
+		break;
+
 	case 6:
 		STATE(d) = CON_ACCT_CHANGE_PASSWD;
 		get_new_account_password(d, NULL);
@@ -680,6 +951,74 @@ void display_account_menu(P_desc d, char *arg)
 		display_account_menu(d, NULL);
 		break;
 	}
+}
+
+/* The account menu and registration use the same inbox-only challenge. */
+static void begin_account_email_verification(P_desc d, const char *email)
+{
+	const auto outcome = account_email_request(d->account, email, d->host);
+	if (outcome == account_recovery_request_outcome::queued ||
+	    outcome == account_recovery_request_outcome::suppressed)
+	{
+		SEND_TO_Q(
+			"\r\nCheck your inbox for a verification code. Your registered email stays unchanged\r\n"
+			"until you enter it. Codes expire in 15 minutes and at restart; requests are limited\r\n"
+			"to one every 10 minutes. Check spam, or contact staff if delivery fails.\r\n",
+			d);
+		STATE(d) = CON_CONFIRM_ACCT;
+		confirm_account(d, NULL);
+		return;
+	}
+	SEND_TO_Q(
+		outcome == account_recovery_request_outcome::disabled ?
+			"\r\nEmail verification is unavailable. Please contact staff.\r\n" :
+			"\r\nUnable to send a verification code now. Please try again later or contact staff.\r\n",
+		d);
+	STATE(d) = CON_DISPLAY_ACCT_MENU;
+	display_account_menu(d, NULL);
+}
+
+void confirm_account(P_desc d, char *arg)
+{
+	if (!arg)
+	{
+		echo_off(d);
+		SEND_TO_Q("Enter the email verification code (or CANCEL): ", d);
+		return;
+	}
+	if (!strcasecmp(arg, "CANCEL"))
+	{
+		echo_on(d);
+		STATE(d) = CON_DISPLAY_ACCT_MENU;
+		display_account_menu(d, NULL);
+		return;
+	}
+	account_email_complete(
+		d, arg,
+		[](P_desc reader, account_recovery_complete_outcome outcome)
+		{
+			if (!reader)
+				return;
+			if (outcome == account_recovery_complete_outcome::ok)
+			{
+				echo_on(reader);
+				reader->account_recovery_attempts = 0;
+				SEND_TO_Q(
+					"\r\nEmail verified and saved. You can now recover your password with this inbox.\r\n",
+					reader);
+				STATE(reader) = CON_DISPLAY_ACCT_MENU;
+				display_account_menu(reader, NULL);
+				return;
+			}
+			SEND_TO_Q(
+				outcome == account_recovery_complete_outcome::write_failed ||
+						outcome == account_recovery_complete_outcome::
+								   load_failed ?
+					"\r\nYour email could not be saved. Please retry with the same code.\r\n" :
+					"\r\nInvalid or expired email verification code.\r\n",
+				reader);
+			confirm_account(reader, NULL);
+		});
 }
 
 void verify_account_name(P_desc d, char *arg)
@@ -703,8 +1042,8 @@ void verify_account_name(P_desc d, char *arg)
 	if ((arg[0] == 'y') || (arg[0] == 'Y'))
 	{
 		SEND_TO_Q("Confirmed...\r\n", d);
-		STATE(d) = CON_GET_NEW_ACCT_PASSWD;
-		get_new_account_password(d, NULL);
+		STATE(d) = CON_GET_NEW_ACCT_EMAIL;
+		get_new_account_email(d, NULL);
 		return;
 	}
 	else if ((arg[0] == 'n') || (arg[0] == 'N'))
@@ -719,6 +1058,98 @@ void verify_account_name(P_desc d, char *arg)
 	{
 		SEND_TO_Q("Invalid choice...\r\n", d);
 		verify_account_name(d, NULL);
+	}
+}
+
+void get_new_account_email(P_desc d, char *arg)
+{
+	if (!arg)
+	{
+		SEND_TO_Q("\r\nPlease enter your email address:  ", d);
+		return;
+	}
+	for (; isspace(*arg); arg++)
+		;
+
+	// Validate email format
+	if (!is_valid_email(arg))
+	{
+		SEND_TO_Q("\r\n&+RInvalid email format.&n Please enter a valid email address.\r\n",
+			  d);
+		SEND_TO_Q("Email address:  ", d);
+		return;
+	}
+
+	if (is_email_taken(arg) &&
+	    (!d->account->acct_email || strcasecmp(arg, d->account->acct_email)))
+	{
+		SEND_TO_Q(
+			"\r\n&+REmail already in use. &+WOnly one account per user please.&n If you are a new user please try a different email.\r\n",
+			d);
+		SEND_TO_Q("Email address:  ", d);
+		return;
+	}
+
+	if (STATE(d) == CON_ACCT_CHANGE_EMAIL)
+	{
+		begin_account_email_verification(d, arg);
+		return;
+	}
+	if (d->account->acct_email)
+		FREE(d->account->acct_email);
+	d->account->acct_email = str_dup(arg);
+	STATE(d) = CON_VERIFY_NEW_ACCT_EMAIL;
+	verify_new_account_email(d, NULL);
+	return;
+}
+
+void verify_new_account_email(P_desc d, char *arg)
+{
+	char buf[1024];
+
+	if (!arg)
+	{
+		snprintf(buf, 1024, "\r\nYou entered %s, is this correct?  (Y/N)",
+			 d->account->acct_email);
+		SEND_TO_Q(buf, d);
+		return;
+	}
+	if ((arg[0] == 'y') || (arg[0] == 'Y'))
+	{
+		SEND_TO_Q("Confirmed...\r\n", d);
+		if (d->account->acct_confirmed == 0)
+		{
+			STATE(d) = CON_GET_NEW_ACCT_PASSWD;
+			get_new_account_password(d, NULL);
+		}
+		else
+		{
+			STATE(d) = CON_DISPLAY_ACCT_MENU;
+			display_account_menu(d, NULL);
+			if (-1 == write_account(d->account))
+			{
+				statuslog(56, "&+RALERT&n: existing confirmed account save failed");
+				persistence_alert(AVATAR, "account", "redacted", "none", "none",
+						  "write_failed", "post-login menu save failed");
+			}
+			else
+				account_recovery_invalidate(d->account->acct_name);
+		}
+		return;
+	}
+	else if ((arg[0] == 'n') || (arg[0] == 'N'))
+	{
+		SEND_TO_Q("Ok, what then?\r\n", d);
+		FREE(d->account->acct_email);
+		d->account->acct_email = NULL;
+		STATE(d) = CON_GET_NEW_ACCT_EMAIL;
+		get_new_account_email(d, NULL);
+		return;
+	}
+	else
+	{
+		SEND_TO_Q("Invalid choice...\r\n", d);
+		verify_new_account_email(d, NULL);
 	}
 }
 
@@ -817,6 +1248,9 @@ void verify_new_account_password(P_desc d, char *arg)
 							      "none", "write_failed",
 							      "auto-confirm save failed");
 				    }
+				    else
+					    account_recovery_invalidate(
+						    completed_desc->account->acct_name);
 			    }
 			    return;
 		    }))
@@ -832,11 +1266,15 @@ void account_create(P_desc d, std::function<void(P_desc, bool)> done)
 	P_acct account = d->account;
 	if (!account || !account->acct_name || !account->acct_password || !*account->acct_password)
 		return done(d, false);
+	// A registration address is only a challenge destination, even when mail is off.
+	if (account->acct_email)
+		FREE(account->acct_email);
+	account->acct_email = str_dup("");
 	account->acct_confirmed = 1;
 	const std::string name = escape_str(account->acct_name);
 	const std::string password = account->acct_password;
 	const std::string insert = sql_format(
-		"INSERT INTO accounts(account_name,password,confirmed) VALUES('%s','%s',1)",
+		"INSERT INTO accounts(account_name,password,email,confirmed) VALUES('%s','%s','',1)",
 		name.c_str(), escape_str(password.c_str()).c_str());
 	const auto inserted = std::make_shared<bool>(false);
 	const auto request = wait_for_writer(d);
@@ -895,9 +1333,11 @@ void verify_new_account_information(P_desc d, char *arg)
 	}
 	if ((arg[0] == 'y') || (arg[0] == 'Y'))
 	{
+		const std::string requested_email =
+			d->account->acct_email ? d->account->acct_email : "";
 		account_create(
 			d,
-			[](P_desc reader, bool ok)
+			[requested_email](P_desc reader, bool ok)
 			{
 				if (!ok)
 				{
@@ -909,9 +1349,18 @@ void verify_new_account_information(P_desc d, char *arg)
 					return;
 				}
 				SEND_TO_Q("Account created successfully!\r\n", reader);
-				display_account_login_pages(reader);
-				update_account_iplist(reader);
-				STATE(reader) = CON_ACCT_RMOTD;
+				if (account_recovery_enabled())
+					begin_account_email_verification(reader,
+									 requested_email.c_str());
+				else
+				{
+					SEND_TO_Q(
+						"Email verification is unavailable; no recovery address was saved.\r\n",
+						reader);
+					display_account_login_pages(reader);
+					update_account_iplist(reader);
+					STATE(reader) = CON_ACCT_RMOTD;
+				}
 			});
 		return;
 	}
@@ -2808,6 +3257,7 @@ static void complete_account_deletion(P_desc d)
 				    }
 				    account_rewards_forget_account(account_name.c_str());
 				    polls_forget_account(account_name.c_str());
+				    account_recovery_forget(account_name.c_str());
 			    }
 			    if (P_desc reader = writer_replied(id))
 				    finish_account_deletion(reader, deleted, identities.size());
@@ -2886,6 +3336,7 @@ static void copy_account(P_acct to, const struct acct_entry *from)
 	clear_account(to);
 	to->next = next;
 	to->acct_name = str_dup(from->acct_name ? from->acct_name : "");
+	to->acct_email = str_dup(from->acct_email ? from->acct_email : "");
 	to->acct_password = str_dup(from->acct_password ? from->acct_password : "");
 	to->acct_confirmation = str_dup(from->acct_confirmation ? from->acct_confirmation : "");
 
@@ -2984,6 +3435,10 @@ int write_account(P_acct acct) // returns -1 if error, 1 if no errors
 	if (!acct)
 		return -1;
 
+	char recovery_name[ACCOUNT_RECOVERY_NAME_BUF];
+	if (account_recovery_canonical_name(acct->acct_name, recovery_name) &&
+	    account_recovery_writes.count(recovery_name))
+		return -1;
 	if (!sql_save_account(acct))
 	{
 		logit(LOG_FILE, "sql_save_account failed");
@@ -3013,6 +3468,8 @@ void display_account_information(P_desc d, P_acct account)
 
 	snprintf(buffer, 4096, "Account Name:              %s\r\n", account->acct_name);
 	SEND_TO_Q(buffer, d);
+	snprintf(buffer, 4096, "Email Address:             %s\r\n", account->acct_email);
+	SEND_TO_Q(buffer, d);
 }
 
 char is_account_confirmed(P_desc d)
@@ -3031,6 +3488,7 @@ void clear_account(P_acct acct)
 	struct acct_chars *next_char = NULL;
 
 	acct->acct_name = check_and_clear(acct->acct_name);
+	acct->acct_email = check_and_clear(acct->acct_email);
 	acct->acct_password = check_and_clear(acct->acct_password);
 	acct->acct_confirmation = check_and_clear(acct->acct_confirmation);
 

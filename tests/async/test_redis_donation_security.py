@@ -53,9 +53,8 @@ def main() -> None:
     worker = (SRC / "redis_donation_worker.c").read_text(encoding="utf-8")
     worker_header = (SRC / "redis_donation_worker.h").read_text(encoding="utf-8")
     events = (SRC / "new_events.c").read_text(encoding="utf-8")
-    assert 'getenv("REDIS_DONATION_SUBSCRIBER")' not in redis
-    assert 'getenv("REDIS_DONATION_SECRET")' not in redis
-    assert "redis_donation_worker_init(" not in redis
+    assert 'getenv("REDIS_DONATION_SUBSCRIBER")' in redis
+    assert 'getenv("REDIS_DONATION_SECRET")' in redis
     assert "redis_donation_runtime_enabled()" in events
     assert "REDIS_DONATION_MAX_MESSAGES_PER_PULSE" in runtime
     assert "redis_donation_worker_take" in runtime

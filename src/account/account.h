@@ -15,7 +15,9 @@
 #include "core/structs.h"
 #endif
 
-struct descriptor_data;
+/* Forward-declares struct descriptor_data.  Prototypes below spell the struct out
+ * because core/structs.h includes this header before its descriptor typedef exists. */
+#include "account/account_recovery.h"
 
 #define USE_ACCOUNT
 
@@ -72,6 +74,7 @@ inline char account_admission_racewar(int player_racewar, bool immortal)
 struct acct_entry
 { // Main Account Structure
 	char *acct_name;
+	char *acct_email;
 	char *acct_password;
 	char *acct_confirmation;
 
@@ -104,6 +107,9 @@ struct acct_list_entry
 	struct acct_list_entry *next;
 };
 
+int is_valid_email(const char *email);
+bool is_email_taken(const char *email);
+
 account_racewar_admission account_check_racewar_admission(struct descriptor_data *d, int racewar,
 							  bool blocked, bool immortal);
 bool account_commit_character_admission(struct descriptor_data *d, struct char_data *character,
@@ -114,17 +120,29 @@ void account_format_racewar_denial(const account_racewar_admission *result, char
 
 /* Login account-name prompt, preceded by the enabled-mode banner (login_mode_banner.h). */
 void send_account_name_prompt(struct descriptor_data *d);
-/* Login password prompt; sets CON_GET_ACCT_PASSWD. */
+/* Login password prompt (enabled/disabled recovery variant); sets CON_GET_ACCT_PASSWD. */
 void send_account_password_prompt(struct descriptor_data *d);
 /* True while a login check is pending, including the pulse that completes it. */
 bool account_login_password_pulse(struct descriptor_data *d);
 /* Close every session on acct_name except one, sending notice (may be NULL) first. */
 void close_account_sessions_named(const char *acct_name, struct descriptor_data *except,
 				  const char *notice);
+/* Borrows fresh for the call; checks its fence and fingerprint, then applies the
+ * password durably before publishing it and disconnecting other sessions. */
+using account_recovery_apply_done =
+	std::function<void(struct descriptor_data *, account_recovery_apply_outcome)>;
+void account_apply_recovered_password(
+	struct acct_entry *fresh, const char *bcrypt_hash,
+	const unsigned char expected_fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN],
+	struct descriptor_data *keep_session, account_recovery_apply_done done);
 // Create a fresh account without overwriting an existing name. Acknowledgment
 // follows durable storage, and the callback only runs for a live session.
 void account_create(struct descriptor_data *d,
 		    std::function<void(struct descriptor_data *, bool)> done);
+void account_apply_verified_email(
+	struct acct_entry *fresh, const char *email,
+	const unsigned char expected_fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN],
+	struct descriptor_data *keep_session, account_recovery_apply_done done);
 /* Reads the named account on the writer, behind the saves queued before it, while d
  * waits with its input held. done runs while d is still
  * connected, with the account, which it then owns, or null when there is none; ok is

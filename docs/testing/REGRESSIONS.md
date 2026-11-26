@@ -141,11 +141,18 @@ one harp, which survives a save, server restart and reconnect. The same journey
 with `--baseline` reinstates 400941 only in its temporary quest file and proves
 the original recipe grants no harp despite receiving every advertised ingredient.
 
-## Account email registry retirement
+## Account email registry lookup
 
-The former email registry and account recovery implementation have been removed.
-The replacement account recovery contracts check registration without email and
-rejection of retired requests.
+With optional `REQUIRE_EMAIL_VERIFICATION` enabled, `is_email_taken` previously
+used `fscanf(...) != 0`: EOF is nonzero, so empty/nonmatching registries could loop
+forever; matching returns leaked the FILE. A baseline call against an owned empty
+registry exceeded its one-second process bound. The lookup now uses a scoped input
+stream, preserves whitespace-token/exact-case matching, terminates at EOF and fails
+closed on open/read errors. Default-disabled behavior still touches no registry.
+`python3 tests/async/test_account_email_registry.py` executes the actual function
+under ASan/UBSan in both configurations. It checks empty/nonmatching/matching input,
+whitespace/long tokens, missing/directory read failure and 2,000 repeated lookups
+with unchanged descriptor count. It uses private synthetic files and no mail send.
 
 ## Sealed schema inventory consumers
 
