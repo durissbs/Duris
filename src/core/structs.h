@@ -1821,6 +1821,11 @@ struct descriptor_data
 	uint64_t writer_wait_id; /* nonzero while the session waits for the writer (account.c) */
 	int player_load_pid;
 	unsigned char player_load_mode;
+	/* Account recovery by email (account/account_recovery_nanny.c). Zeroed with the
+	 * descriptor by new_descriptor / copyover_recover; cleansed on every exit path. */
+	unsigned char account_recovery_attempts; /* code attempts on this connection */
+	char account_recovery_code[33]; /* normalised accepted code, 32 hex + NUL */
+	char *account_recovery_pending_hash; /* bcrypt of the first new-password entry */
 	/* SAM 7-94, used to allow confirming commands */
 	char old_pwd[40]; /* old password held here when
 	                                       changing SAM 7-94 */

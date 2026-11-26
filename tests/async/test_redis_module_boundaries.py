@@ -187,10 +187,7 @@ for token in (
     assert token in RUNTIME_CONFIG_SOURCE
     assert token not in REDIS_SOURCE
 assert "redis_runtime_config.o" in MAKEFILE
-assert "redis_runtime_connections_configure(false, &redis_connections)" in REDIS_SOURCE
-assert "redis_donation_worker_init(" not in REDIS_SOURCE
-assert 'getenv("REDIS_DONATION_SUBSCRIBER")' not in REDIS_SOURCE
-assert "redis_donation_runtime_set_enabled(true)" not in REDIS_SOURCE
+assert "redis_runtime_connections_configure(redis_donation_runtime_enabled()" in REDIS_SOURCE
 
 for symbol in (
     "redis_ship_legacy_worker_init",

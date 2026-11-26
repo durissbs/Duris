@@ -1,30 +1,63 @@
-# Account access and password recovery
+# Account email and password recovery
 
 ## Players
 
-New accounts require only an account name and a password. No email address is
-requested, and email verification and password resets are no longer supported.
-If you can log in, change your password through account-menu option **6** on
-telnet or the **Password** tab in the browser client.
+If you can log in, use account-menu option **5** on telnet, or **Account → Email** in
+the browser client. Enter an inbox you control, then enter the verification code from
+that inbox. This also lets you verify your existing address or add a missing one.
+Your recovery address stays unchanged until verification succeeds. New accounts have no
+recovery address until this step is complete, including when mail is unavailable.
+You can still play while verification is pending; return to the account menu to finish later.
 
-If you forget your password, contact game staff for assistance. Staff can reset
-a password, but cannot retrieve the old one.
+If you forgot your password, enter your account name and type **?** at the telnet
+password prompt. In the browser client choose **Forgot password?** on the login panel.
+Request the code, read the email, enter the code and choose a new password, then log in.
+The website login uses the same account password and links to the browser recovery form.
+Recovery changes the password; it never retrieves the old one.
 
-## Staff
+Codes work once, expire after 15 minutes, and are lost when the game restarts or copies
+over. Request a new code after a restart. Each account can request one code of each kind
+per 10 minutes, and each client address can request five codes in 10 minutes. Five wrong
+guesses exhaust a code. Check spam if nothing arrives. A request response intentionally
+does not reveal whether an account or usable email exists. If delivery fails, wait and
+retry or ask staff. If storage fails, use the same code while it is still valid.
 
-Use the established manual account-ownership checks before restoring access.
-Do not treat knowledge of an email address or a claimed character name as proof.
-Do not request a player's mailbox password or disclose password hashes. Once
-ownership is established, use the authorized password administration procedure
-(`scripts/change_password.sh`) and have the player choose a unique password.
+## Staff fallback
 
-## Rollout
+Players who can log in can verify a new inbox without access to the previous inbox.
+A locked-out player who cannot access their registered inbox needs staff help. Use the
+established manual account-ownership checks; do not treat knowledge of an email address
+or a claimed character name as proof. Do not disclose the registered address, password
+hash, or codes. Once ownership is established, use the authorized account administration
+procedure to restore access, then have the player verify their current inbox and choose
+a unique password. Staff must never ask a player for their mailbox password.
 
-Deploy the matching game and browser changes together and perform a full game
-restart to discard any old in-memory recovery state. Check registration and
-password login on both clients and verify that the account email columns contain
-no addresses. Take a verified backup after the scrub. Restore qualification
-rejects a recovered database that still contains account email addresses. Use a
-verified post-scrub generation for recovery. The account-recovery
-SMTP settings no longer enable player email; operational backup alert settings
-are separate and must not be removed merely because account recovery is retired.
+If delivery is unavailable, the account-menu and reset paths say so. Escalate repeated
+delivery failures using the numeric curl/SMTP outcomes in the operational logs, without
+copying addresses, codes, credentials or raw SMTP conversations into reports.
+
+## Prepare activation without rebooting
+
+1. Configure `MAIL_ENABLED=TRUE`, `MAIL_HOST`, `MAIL_FROM` and relay credentials in the
+   private environment file, with `MAIL_TLS=TRUE`. Use a provider-authorized sender.
+   See [the configuration contract](CONFIGURATION.md#account-recovery-mail) for the full
+   validation and shell-safety rules. Check that inherited launcher environment values
+   will not override the intended file values. Settings are read once at startup.
+2. Build the MUD and browser client and run the focused tests in
+   [TESTING.md](../guides/TESTING.md#account-recovery-contracts). Keep the current game
+   and website running. Stage browser output away from the live `frontend/dist` tree.
+3. Send authorized tests through the real configured relay, require TLS and confirm
+   actual inbox delivery. SMTP 250 alone does not prove inbox receipt. Inspect sender
+   authentication results where available. Use disposable accounts and an isolated
+   database to test registration, inbox verification, reset, single use and old/new
+   password login on telnet and WebSocket without restarting the production game.
+4. Stage the qualified MUD executable with its `mariadb/production` stamp and retain
+   the browser build, source revisions, validation and rollback evidence privately.
+   This feature requires no schema migration. Publish player help and browser assets
+   at the planned activation boundary, then perform the separately authorized reboot.
+5. After that reboot, require the enabled startup log, perform the production smoke
+   journey on both clients with an authorized account/inbox, and verify public health.
+   Do not mark the issue's production activation accepted before these checks.
+
+Optional password/email-change notifications and marketing mail are separate work.
+Account recovery and verification never opt a player into announcements.

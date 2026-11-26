@@ -460,7 +460,7 @@ historical inventory labels, not automatic current SQL fallback inputs. Explicit
 pfile inspection/import commands use `SAVE_DIR` (`Players`) or artifact import
 paths; do not use old-season import sources to repopulate a fresh season.
 
-The retired `Accounts/email.db` must not be restored. Keep site bans in
+Keep `Accounts/email.db` when optional email verification is enabled, site bans in
 `lib/misc/ban_sites`, and invitation/accepted/declined-name policy under `Players`.
 These account/admission controls survive; byte-exact synthetic canaries cover the
 actual paths during cleanup.
@@ -522,7 +522,9 @@ owned jointly by the wipe operator and website service owner:
 3. Complete the authorized MUD reset, verify its exact SQL epoch is active, then
    start the fresh game explicitly. Preserve the deployment namespace, webhook
    verification token, independent donation signing secret and account credentials.
-   Donation delivery is retired; do not resume the old publisher or subscriber.
+   If donation delivery is enabled, verify the native
+   `REDIS_DONATION_SUBSCRIBER=TRUE`, matching secret and MUD hook are ready before
+   resuming the website publisher. Do not publish into a disabled game consumer.
 4. Start the website normally. It reads the active epoch for scoped Redis feeds;
    it does not reuse old character rosters or derived MUD-permission caches. Obtain
    fresh websocket capabilities through the surviving authenticated session and
@@ -808,8 +810,47 @@ player data.
 | `logs/log/wizlog` | Immortal commands |
 | `logs/duris-console.log` | stdout/stderr of the supervised process |
 
-Player email recovery is retired. For a locked-out account, follow the staff
-ownership verification and password reset procedure in [ACCOUNT_EMAIL.md](ACCOUNT_EMAIL.md).
+Account password recovery by email writes to two of those files. At boot `logs/log/status`
+carries the disposition: `Account recovery enabled (smtp port=<port> tls=<0|1>).` when
+`MAIL_ENABLED=TRUE` and every `MAIL_*` setting validated, otherwise lines ending in
+`password reset by email disabled.` that name the reason (`MAIL_ENABLED is not TRUE`,
+`configuration rejected: <category>` where the category names the offending key, never its
+value, or `mail sender failed to start`), followed by the boot sequence's own `Account
+recovery unavailable; password reset by email disabled.` While the feature runs,
+`logs/player-log/player` records one line per request, per completion, per mail result, and
+when wrong guesses exhaust a code, carrying only the request id, the outcome category, and
+the integer libcurl and SMTP codes (for example
+`account recovery mail request=<id> outcome=<sent|retryable|terminal> curl=<n> smtp=<n>`);
+`(account=redacted)` is literal. No line anywhere contains the reset code, the email
+address, the account name, the client address, or libcurl error prose. Completions,
+exhausted codes, save failures, and (rate-limited to one line per 60 s) terminal mail
+failures or live-token evictions and host-window slot recycling also raise a `*** STATUS:`
+notice to immortals watching status, which is mirrored into `logs/log/status`. A run of
+terminal mail failures means the relay, its credentials, or its certificate chain is wrong:
+fix the relay or `MAIL_*` settings and restart; never work around it by weakening TLS
+verification, which the source contracts forbid.
+
+Before activating account recovery in production:
+
+1. Deploy the reviewed recovery changes and configure the `MAIL_*` settings in
+   [CONFIGURATION.md](CONFIGURATION.md#account-recovery-mail), respecting the `.env`
+   loader's shell-safety constraints. Recovery itself needs no schema migration.
+2. With owner approval for the configuration change and restart, set `MAIL_ENABLED=TRUE`
+   and restart normally. Confirm the enabled boot line; it proves configuration validation
+   and worker startup, not SMTP authentication or mailbox delivery.
+3. Use an authorized test account with an accessible saved email address. Enter its name
+   at the login screen, type `?`, retrieve the email, enter the code, choose and confirm a
+   new password, then log in with it. Confirm the old password fails and other sessions
+   for that account disconnect. The game never emails an existing password.
+4. Check the redacted mail outcome and completion lines. `sent` means the relay accepted
+   the message; confirm actual inbox delivery separately, including spam placement.
+   Do not paste reset codes, passwords or SMTP credentials into logs or tickets.
+5. To disable recovery, set `MAIL_ENABLED=FALSE` and restart. This discards outstanding
+   codes and queued mail; it does not undo passwords already saved. Accounts without an
+   accessible saved email address still require immortal assistance.
+
+Local qualification uses a fake SMTP relay and disposable storage. It does not certify
+the production relay credentials, trusted certificate chain or recipient-domain delivery.
 
 Useful checks:
 
@@ -1181,9 +1222,17 @@ its action is the reason and its detail the age of the last good one
 ([CONFIGURATION.md](CONFIGURATION.md)). Captures resume by themselves once the cause is
 gone; no restart is needed.
 
-The old email recovery worker and its process-local codes have been removed.
-A full restart at the coordinated game and website deployment boundary discards
-any previous version's in-memory recovery state. Staff use `scripts/change_password.sh`.
+Account password recovery keeps no durable state. Reset codes, their per-account cooldown
+records, and any queued or in-flight recovery mail live only in process memory, so a
+copyover or restart discards them; the player-facing text already says to request a new
+code after a restart, and no operator action or cleanup is needed. The mail worker is not
+part of the shutdown drain chain, so a dead or slow relay can never delay or cancel a
+copyover or shutdown. The worker thread is joined at shutdown, though: when a send is in
+flight at the moment `SIGTERM` arrives, process exit may take up to 20 s longer (libcurl is
+bounded to 10 s connect / 20 s total per send, with no retry). The production unit's
+`TimeoutStopSec` must stay above that tail; the checked-in
+`deploy/systemd/duris-mud-production.service.in` uses 90 s. `scripts/change_password.sh`
+remains the operator fallback for an account with no usable email address on file.
 
 ### Known-benign log lines
 

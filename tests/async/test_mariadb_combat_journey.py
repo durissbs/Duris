@@ -456,6 +456,10 @@ def create_character(client: MudClient, expected_room: str | None = "The Regress
     else:
         client.expect("is this correct?")
         client.send("y")
+        client.expect("email address")
+        client.send(email)
+        client.expect("is this correct?")
+        client.send("y")
         client.expect("enter your password")
         client.send(PASSWORD)
         client.expect("Please re-enter the same password to confirm:  ")

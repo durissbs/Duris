@@ -104,6 +104,7 @@
 #include "magic/spells.h"
 #include "item/enhance.h"
 #include "economy/crafting.h"
+#include "account/account_recovery.h"
 #include "item/locker_identify.h"
 #include "item/private_chest_purchase.h"
 #include "item/storage_lockers.h"
@@ -1185,7 +1186,10 @@ int run_the_game(int port, int sslport)
 		logit(LOG_STATUS,
 		      "Player load pipeline unavailable; existing characters cannot log in.");
 	player_load_pipeline_set_hold(player_save_pipeline_load_held);
-	/* Account recovery is staff-only; do not start the legacy SMTP worker. */
+	/* Same rule for the mail worker: joinable thread only after the fatal loads. */
+	if (!account_recovery_init())
+		logit(LOG_STATUS,
+		      "Account recovery unavailable; password reset by email disabled.");
 
 	information_cache_refresh();
 	help_cache_refresh();
@@ -1270,6 +1274,7 @@ int run_the_game(int port, int sslport)
 	collector_presence_shutdown();
 	information_cache_shutdown();
 	help_cache_shutdown();
+	account_recovery_shutdown();
 	password_login_shutdown();
 	locker_identify_shutdown();
 	critical_outbox_shutdown();
@@ -2505,6 +2510,8 @@ static void run_recurring_persistence_phase(game_loop_pulse_context &ctx)
 		record_job("collector_presence_pulse");
 		collector_service_pulse();
 		record_job("collector_service_pulse");
+		account_recovery_pulse();
+		record_job("account_recovery_pulse");
 		redis_world_recovery_pulse();
 		record_job("redis_world_recovery_pulse");
 		latency_trace_record("gmcp_flush",
@@ -3724,6 +3731,7 @@ void close_socket(struct descriptor_data *d)
 	int is_morphed = d->character ? IS_MORPH(d->character) : 0;
 	if (d && d->player_load_request_id)
 		player_load_pipeline_cancel(d->player_load_request_id);
+	account_recovery_descriptor_closed(d);
 	password_async_cancel(d);
 	password_login_release(d->login_password_job);
 	d->login_password_job = nullptr;

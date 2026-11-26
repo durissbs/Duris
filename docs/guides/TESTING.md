@@ -451,14 +451,41 @@ measurements, or complete fault/reconciliation matrix the 200-player gate requir
 
 ### Account recovery contracts
 
-Registration requires only an account name and password. Old email and recovery
-commands must be rejected even if legacy SMTP settings are enabled. Source checks
-and isolated MariaDB/Telnet/WebSocket journeys cover the retired entry points,
-password login, duplicate registration races and lost signup COMMIT replies.
+Password reset by email has a core harness (injected mail sender and
+clock, no network), a wire-level SMTP harness against a fake relay on `127.0.0.1`, a
+source-contract pin set, and a telnet journey that boots the MariaDB server with a
+fake relay. None of them needs a real relay or a database; the compiled harnesses need
+`g++` plus the libcurl and OpenSSL development headers from the dependency metapackage:
 
 ```bash
+python3 tests/async/test_account_recovery.py
+python3 tests/async/test_account_recovery_smtp_live.py
 python3 tests/async/test_account_recovery_contract.py
-tests/async/with_disposable_mariadb.sh python3 tests/async/test_account_recovery_journey.py --server bin/server/dms_new
+python3 tests/async/test_account_recovery_journey.py
+```
+
+The harnesses never print a reset code or an address; a captured code reaches the driver
+only through a temporary file. The SMTP test also verifies refusal when STARTTLS is
+required but unavailable, and timeout classification after a successful greeting.
+Successful TLS negotiation and SMTP AUTH are not exercised, so these fixtures do not
+qualify a real relay.
+
+The core harness also checks verification/reset purpose separation, independent account
+cooldowns, and invalidation of both kinds of code. New-account fixtures redeem inbox
+verification before exercising recovery.
+
+The MariaDB journey uses a disposable database and the same fake relay. It checks
+inbox ownership before storing a registration address, wrong and reused verification
+codes, failure and same-code retry for durable email writes, and retention of the old
+recovery address while a replacement is pending. It also checks telnet
+and unauthenticated WebSocket recovery, failed writes and same-code retry, single use,
+session revocation, restart persistence, account fences changed while saving, loop
+responsiveness, lost COMMIT replies before and after application, and cooldown timestamp
+durability when a character quits and disconnects during recovery. The COMMIT fault is a
+test-only interposer loaded into the isolated server. The journey runs in
+`make test-db`, or directly after a MariaDB build:
+
+```bash
 tests/async/with_disposable_mariadb.sh python3 tests/async/test_account_recovery_mysql_journey.py --server bin/server/dms_new
 ```
 
