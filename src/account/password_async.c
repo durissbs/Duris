@@ -33,7 +33,7 @@ struct password_request
 	P_acct account;
 	P_char character;
 	int room;
-	std::string name, credential, email, expected;
+	std::string name, credential, expected;
 	~password_request() { password_login_release(job); }
 };
 
@@ -54,7 +54,6 @@ bool password_async_start(P_desc d, password_login_job *job, const char *expecte
 	request->room = d->character ? d->character->in_room : -1;
 	request->name = snapshot(d->account ? d->account->acct_name : nullptr);
 	request->credential = snapshot(d->account ? d->account->acct_password : nullptr);
-	request->email = snapshot(d->account ? d->account->acct_email : nullptr);
 	request->expected = snapshot(expected_hash);
 	d->password_request = request.release();
 	return true;
@@ -72,7 +71,6 @@ bool password_async_pulse(P_desc d)
 	if (STATE(d) != r->state || d->account != r->account || d->character != r->character ||
 	    r->name != snapshot(d->account ? d->account->acct_name : nullptr) ||
 	    r->credential != snapshot(d->account ? d->account->acct_password : nullptr) ||
-	    r->email != snapshot(d->account ? d->account->acct_email : nullptr) ||
 	    (d->character && (d->character->in_room != r->room ||
 			      (r->state == CON_PLAYING && !IS_ALIVE(d->character)))))
 	{

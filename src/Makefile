@@ -130,8 +130,6 @@ OBJS =  $(SHIP_OBJS) \
 				 account/racewar_admission.o \
 				 account/password_hash.o \
 				 account/password_async.o \
-				 account/account_recovery.o \
-				 account/account_recovery_nanny.o \
 				 account/account_reward.o \
 				 account/account_reward_snapshot.o \
 				 account/account_reward_config.o \
@@ -298,7 +296,6 @@ OBJS =  $(SHIP_OBJS) \
 				 world/map.o \
 				 net/mccp.o \
 				 net/mssp.o \
-				 net/mail_sender.o \
 				 classes/memorize.o \
 				 core/memory.o \
 				 core/mm.o \

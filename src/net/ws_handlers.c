@@ -43,7 +43,6 @@
 #include "player/player_load_offline.h"
 #include "player/player_load_pipeline.h"
 #include "sql/sql_async.h"
-#include "account/account_recovery.h"
 #include "combat/chaos_config.h"
 #include "cmd/interp.h"
 #include "core/defines.h"
@@ -1547,11 +1546,9 @@ void ws_cmd_game(struct descriptor_data *d, cJSON *data)
 }
 
 /* handle register command - create a new account */
-static void ws_begin_email_verification(P_desc d, const char *email);
-
 void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 {
-	cJSON *account_json, *password_json, *email_json;
+	cJSON *account_json, *password_json;
 	char tmp_name[MAX_INPUT_LENGTH];
 	int i;
 
@@ -1579,13 +1576,11 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 	/* get required fields from json */
 	account_json = cJSON_GetObjectItemCaseSensitive(data, "account");
 	password_json = cJSON_GetObjectItemCaseSensitive(data, "password");
-	email_json = cJSON_GetObjectItemCaseSensitive(data, "email");
 
 	if (!cJSON_IsString(account_json) || !account_json->valuestring ||
-	    !cJSON_IsString(password_json) || !password_json->valuestring ||
-	    !cJSON_IsString(email_json) || !email_json->valuestring)
+	    !cJSON_IsString(password_json) || !password_json->valuestring)
 	{
-		ws_send_auth_failed(d, "Missing required fields: account, password, email");
+		ws_send_auth_failed(d, "Missing required fields: account, password");
 		return;
 	}
 
@@ -1623,20 +1618,6 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 		}
 	}
 
-	/* validate email format */
-	if (!is_valid_email(email_json->valuestring))
-	{
-		ws_send_auth_failed(d, "Invalid email address format");
-		return;
-	}
-
-	/* check if email is already in use */
-	if (is_email_taken(email_json->valuestring))
-	{
-		ws_send_auth_failed(d, "Unable to create account with those details");
-		return;
-	}
-
 	/* validate password length */
 	if (strlen(password_json->valuestring) < 6)
 	{
@@ -1658,9 +1639,8 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 		return;
 	}
 
-	/* set account name and email */
+	/* set account name */
 	d->account->acct_name = str_dup(tmp_name);
-	d->account->acct_email = str_dup(email_json->valuestring);
 
 	if (!password_async_start(
 		    d, password_work_submit(password_json->valuestring, nullptr, nullptr, 0, 0),
@@ -1682,10 +1662,9 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 			    if (hashed_desc->account->acct_password)
 				    FREE(hashed_desc->account->acct_password);
 			    hashed_desc->account->acct_password = str_dup(hash);
-			    const std::string requested_email = hashed_desc->account->acct_email;
 			    account_create(
 				    hashed_desc,
-				    [requested_email](P_desc reader, bool ok)
+				    [](P_desc reader, bool ok)
 				    {
 					    if (!ok)
 					    {
@@ -1699,13 +1678,6 @@ void ws_cmd_register(struct descriptor_data *d, cJSON *data)
 					    STATE(reader) = CON_ACCT_SELECT_CHAR;
 					    ws_send_auth_success(reader,
 								 reader->account->acct_name);
-					    if (account_recovery_enabled())
-						    ws_begin_email_verification(
-							    reader, requested_email.c_str());
-					    else
-						    ws_send_system(
-							    reader, "info",
-							    "Email verification is unavailable; no recovery address was saved.");
 				    });
 		    }))
 	{
@@ -2771,8 +2743,6 @@ void ws_cmd_account_info(struct descriptor_data *d, cJSON * /*data*/)
 	info_data = cJSON_CreateObject();
 
 	cJSON_AddStringToObject(info_data, "name", d->account->acct_name);
-	cJSON_AddStringToObject(info_data, "email",
-				d->account->acct_email ? d->account->acct_email : "");
 	cJSON_AddStringToObject(info_data, "created", "unknown");
 
 	/* last login */
@@ -2802,87 +2772,15 @@ void ws_cmd_account_info(struct descriptor_data *d, cJSON * /*data*/)
 	ws_send_account_message(d, "info", info_data, NULL);
 }
 
-/* change account email */
-static void ws_begin_email_verification(P_desc d, const char *email)
+/* Older clients receive an explicit error rather than an ignored request. */
+void ws_cmd_change_email(P_desc d, cJSON *)
 {
-	const auto outcome = account_email_request(d->account, email, d->host);
-	if (outcome == account_recovery_request_outcome::queued)
-		ws_send_account_message(d, "email_verification_requested", NULL, NULL);
-	else
-		ws_send_account_message(
-			d, "error", NULL,
-			outcome == account_recovery_request_outcome::disabled ?
-				"Email verification is unavailable; contact staff" :
-			outcome == account_recovery_request_outcome::suppressed ?
-				"Use your pending verification code, or wait 10 minutes before requesting another" :
-				"Unable to send a verification code; try again later or contact staff");
+	ws_send_account_message(d, "error", NULL, "Email registration has been removed");
 }
 
-static bool ws_can_change_email(P_desc d)
+static void ws_cmd_confirm_email(P_desc d, cJSON *)
 {
-	return d && d->account && !d->durisweb_verified && !d->durisweb_backend &&
-	       (STATE(d) == CON_ACCT_SELECT_CHAR || STATE(d) == CON_DISPLAY_ACCT_MENU ||
-		STATE(d) == CON_PLAYING);
-}
-
-void ws_cmd_change_email(struct descriptor_data *d, cJSON *data)
-{
-	if (!ws_can_change_email(d))
-	{
-		ws_send_account_message(d, "error", NULL, "Not logged in");
-		return;
-	}
-	const cJSON *email = data ? cJSON_GetObjectItemCaseSensitive(data, "newEmail") : NULL;
-	if (!cJSON_IsString(email) || !is_valid_email(email->valuestring))
-	{
-		ws_send_account_message(d, "error", NULL, "Invalid email format");
-		return;
-	}
-	if (is_email_taken(email->valuestring) &&
-	    (!d->account->acct_email || strcasecmp(email->valuestring, d->account->acct_email)))
-	{
-		ws_send_account_message(d, "error", NULL, "Unable to use that email address");
-		return;
-	}
-	ws_begin_email_verification(d, email->valuestring);
-}
-
-static void ws_cmd_confirm_email(P_desc d, cJSON *data)
-{
-	if (!ws_can_change_email(d))
-	{
-		ws_send_account_message(d, "error", NULL, "Not logged in");
-		return;
-	}
-	const cJSON *code = data ? cJSON_GetObjectItemCaseSensitive(data, "code") : NULL;
-	if (!cJSON_IsString(code))
-	{
-		ws_send_account_message(d, "error", NULL, "Missing verification code");
-		return;
-	}
-	account_email_complete(
-		d, code->valuestring,
-		[](P_desc reader, account_recovery_complete_outcome outcome)
-		{
-			if (!reader)
-				return;
-			if (outcome != account_recovery_complete_outcome::ok)
-			{
-				ws_send_account_message(
-					reader, "error", NULL,
-					outcome == account_recovery_complete_outcome::write_failed ||
-							outcome ==
-								account_recovery_complete_outcome::
-									load_failed ?
-						"Email could not be saved; retry with the same code" :
-						"Invalid or expired email verification code");
-				return;
-			}
-			reader->account_recovery_attempts = 0;
-			cJSON *result = cJSON_CreateObject();
-			cJSON_AddStringToObject(result, "email", reader->account->acct_email);
-			ws_send_account_message(reader, "email_changed", result, NULL);
-		});
+	ws_send_account_message(d, "error", NULL, "Email registration has been removed");
 }
 
 void ws_cmd_change_password(struct descriptor_data *d, cJSON *data)
@@ -2957,9 +2855,6 @@ void ws_cmd_change_password(struct descriptor_data *d, cJSON *data)
 				    return;
 			    }
 
-			    /* A reset code issued against the old password must never complete. */
-			    account_recovery_invalidate(completed_desc->account->acct_name);
-
 			    statuslog(56, "Account password changed");
 
 			    ws_send_account_message(completed_desc, "password_changed", NULL, NULL);
@@ -2968,250 +2863,15 @@ void ws_cmd_change_password(struct descriptor_data *d, cJSON *data)
 					"Password service is busy; try again later");
 }
 
-/* === account password recovery by email === */
-
-/*
- * Request a reset code for an account.  The reply is the same "reset_requested"
- * envelope whatever happened (junk or unknown name, no email on file, inside the
- * cooldown, queued): the client renders the meaning of ACCOUNT_RECOVERY_UNIFORM_TEXT
- * itself, so the server never says whether a mail was queued.  The account is loaded
- * into a scratch entry that is never attached to the descriptor.
- */
-/* One reply table for every request_reset outcome, so an unknown name and an
- * account without an email address are indistinguishable on the wire. */
-static void ws_request_reset_reply(struct descriptor_data *d,
-				   account_recovery_request_outcome outcome)
+/* Retired requests from older browser clients must never reach credential mutations. */
+void ws_cmd_request_reset(struct descriptor_data *d, cJSON *)
 {
-	switch (outcome)
-	{
-	case account_recovery_request_outcome::host_limited:
-		ws_send_account_message(
-			d, "error", NULL,
-			"Too many reset requests from your address; wait 10 minutes");
-		break;
-	case account_recovery_request_outcome::disabled:
-		ws_send_account_message(d, "error", NULL,
-					"Password reset by email is not available on this server");
-		break;
-	case account_recovery_request_outcome::queued:
-	case account_recovery_request_outcome::suppressed:
-	case account_recovery_request_outcome::capacity:
-	case account_recovery_request_outcome::invalid_name:
-		ws_send_account_message(d, "reset_requested", NULL, NULL);
-		break;
-	}
+	ws_send_account_message(d, "error", NULL, "Password recovery is staff-only; contact staff");
 }
 
-/* A name that does not exist or cannot be loaded walks the same core path as an
- * account with no email address: the per-host window is charged and the reply
- * is the same, so the window cannot be used as an existence probe. */
-static void ws_request_reset_decoy(struct descriptor_data *d, const char *lower_name)
+void ws_cmd_complete_reset(struct descriptor_data *d, cJSON *)
 {
-	unsigned char fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN] = { 0 };
-	uint64_t request_id = 0;
-
-	ws_request_reset_reply(d, account_recovery_request(lower_name, NULL, 0, fingerprint,
-							   d->host, &request_id));
-}
-
-void ws_cmd_request_reset(struct descriptor_data *d, cJSON *data)
-{
-	cJSON *account_json;
-	const char *account_name;
-	char lower_name[ACCOUNT_RECOVERY_NAME_BUF];
-
-	if (d && (d->durisweb_verified || d->durisweb_backend))
-	{
-		ws_send_auth_failed(d, "Service connection cannot request a reset");
-		return;
-	}
-	/* Shares the registration bucket: both are unauthenticated, mail-adjacent requests. */
-	if (!ws_player_auth_attempt(d, 1))
-	{
-		ws_send_account_message(d, "error", NULL, "Too many requests; try again later");
-		return;
-	}
-	if (!account_recovery_enabled())
-	{
-		ws_send_account_message(d, "error", NULL,
-					"Password reset by email is not available on this server");
-		return;
-	}
-
-	account_json = data ? cJSON_GetObjectItem(data, "account") : NULL;
-	if (!account_json || !cJSON_IsString(account_json) || !account_json->valuestring)
-	{
-		ws_send_account_message(d, "reset_requested", NULL, NULL);
-		return;
-	}
-	account_name = account_json->valuestring;
-	if (strlen(account_name) < 3 || strlen(account_name) > 20)
-	{
-		ws_send_account_message(d, "reset_requested", NULL, NULL);
-		return;
-	}
-
-	/* lowercase for the account lookup, as ws_cmd_login does */
-	strlcpy(lower_name, account_name, sizeof lower_name);
-	for (int i = 0; lower_name[i]; i++)
-	{
-		lower_name[i] = (char)tolower((unsigned char)lower_name[i]);
-	}
-
-	account_read(d, lower_name,
-		     [name = std::string(lower_name)](P_desc reader, bool, P_acct account)
-		     {
-			     if (!account)
-			     {
-				     ws_request_reset_decoy(reader, name.c_str());
-				     return;
-			     }
-			     /* The fingerprint lets completion notice a password or email change
-			      * made after the code was issued, whichever path made the change. */
-			     unsigned char fingerprint[ACCOUNT_RECOVERY_FINGERPRINT_LEN];
-			     uint64_t request_id = 0;
-			     account_recovery_credential_fingerprint(
-				     account->acct_password, account->acct_email, fingerprint);
-			     const account_recovery_request_outcome outcome =
-				     account_recovery_request(account->acct_name,
-							      account->acct_email,
-							      account->acct_blocked, fingerprint,
-							      reader->host, &request_id);
-			     free_account(account);
-			     ws_request_reset_reply(reader, outcome);
-		     });
-}
-
-static void ws_complete_reset_reply(P_desc reader, account_recovery_complete_outcome outcome)
-{
-	if (!reader)
-		return;
-	switch (outcome)
-	{
-	case account_recovery_complete_outcome::ok:
-		reader->account_recovery_attempts = 0;
-		/* The client follows up with an ordinary login. */
-		ws_send_account_message(reader, "reset_completed", NULL, NULL);
-		break;
-	case account_recovery_complete_outcome::load_failed:
-	case account_recovery_complete_outcome::write_failed:
-		ws_send_account_message(reader, "error", NULL, "Failed to save password change");
-		break;
-	case account_recovery_complete_outcome::rejected:
-	case account_recovery_complete_outcome::fenced:
-	case account_recovery_complete_outcome::superseded:
-	case account_recovery_complete_outcome::bad_hash:
-		ws_send_account_message(reader, "error", NULL, "Invalid or expired reset code");
-		break;
-	}
-}
-
-/*
- * Finish a reset: check the code, then hash and apply the new password.  Every
- * code-related failure is the one "Invalid or expired reset code" text, and the
- * password policy runs before the code is checked so its message can never confirm
- * a guess.  bcrypt runs only after a correct code, so guessing buys no hashing.
- */
-void ws_cmd_complete_reset(struct descriptor_data *d, cJSON *data)
-{
-	cJSON *account_json, *code_json, *password_json;
-	const char *account_name, *new_password;
-	char lower_name[ACCOUNT_RECOVERY_NAME_BUF];
-	char normalized[ACCOUNT_RECOVERY_CODE_BUF] = "";
-
-	if (d && (d->durisweb_verified || d->durisweb_backend))
-	{
-		ws_send_auth_failed(d, "Service connection cannot reset a password");
-		return;
-	}
-	if (!ws_player_auth_attempt(d, 0))
-	{
-		ws_send_account_message(d, "error", NULL, "Too many attempts; try again later");
-		return;
-	}
-
-	account_json = data ? cJSON_GetObjectItem(data, "account") : NULL;
-	code_json = data ? cJSON_GetObjectItem(data, "code") : NULL;
-	password_json = data ? cJSON_GetObjectItem(data, "newPassword") : NULL;
-	if (!account_json || !cJSON_IsString(account_json) || !account_json->valuestring ||
-	    !code_json || !cJSON_IsString(code_json) || !code_json->valuestring || !password_json ||
-	    !cJSON_IsString(password_json) || !password_json->valuestring)
-	{
-		ws_send_account_message(d, "error", NULL, "Missing reset fields");
-		return;
-	}
-	account_name = account_json->valuestring;
-	new_password = password_json->valuestring;
-
-	if (strlen(new_password) < 6)
-	{
-		ws_send_account_message(d, "error", NULL, "Password must be at least 6 characters");
-		return;
-	}
-	if (strlen(account_name) < 3 || strlen(account_name) > 20)
-	{
-		ws_send_account_message(d, "error", NULL, "Invalid or expired reset code");
-		return;
-	}
-	/* Per-descriptor cap: bounds probing even when no code exists for the name.  The
-	 * counter is only cleared by a completed reset or by close_socket. */
-	if (d->account_recovery_attempts >= ACCOUNT_RECOVERY_MAX_DESCRIPTOR_ATTEMPTS)
-	{
-		ws_send_account_message(d, "error", NULL, "Invalid or expired reset code");
-		return;
-	}
-	d->account_recovery_attempts++;
-
-	strlcpy(lower_name, account_name, sizeof lower_name);
-	for (int i = 0; lower_name[i]; i++)
-	{
-		lower_name[i] = (char)tolower((unsigned char)lower_name[i]);
-	}
-
-	if (account_recovery_check(lower_name, code_json->valuestring, normalized) !=
-	    account_recovery_check_outcome::accepted)
-	{
-		OPENSSL_cleanse(normalized, sizeof normalized);
-		ws_send_account_message(d, "error", NULL, "Invalid or expired reset code");
-		return;
-	}
-
-	if (!password_async_start(
-		    d, password_work_submit(new_password, nullptr, nullptr, 0, 0), nullptr,
-		    [name = std::string(lower_name),
-		     code = std::shared_ptr<char>(strdup(normalized),
-						  [](char *secret)
-						  {
-							  if (secret)
-							  {
-								  OPENSSL_cleanse(secret,
-										  strlen(secret));
-								  free(secret);
-							  }
-						  })](P_desc completed_desc, int, const char *hash)
-		    {
-			    if (!hash)
-			    {
-				    ws_send_account_message(completed_desc, "error", NULL,
-							    "Failed to hash password");
-				    return;
-			    }
-
-			    /* The account is read afresh, behind every save queued before it. */
-			    account_read(completed_desc, name.c_str(),
-					 [name, code, hash = std::string(hash)](P_desc reader, bool,
-										P_acct fresh)
-					 {
-						 account_recovery_complete(name.c_str(), code.get(),
-									   hash.c_str(), reader,
-									   fresh,
-									   ws_complete_reset_reply);
-						 free_account(fresh);
-					 });
-		    }))
-		ws_send_account_message(d, "error", NULL,
-					"Password service is busy; try again later");
-	OPENSSL_cleanse(normalized, sizeof normalized);
+	ws_send_account_message(d, "error", NULL, "Password recovery is staff-only; contact staff");
 }
 
 /* delete a character */

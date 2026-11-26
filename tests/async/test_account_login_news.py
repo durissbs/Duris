@@ -22,14 +22,12 @@ assert password.count("display_account_login_pages(d);") == 1
 assert (password.index("close_socket(k);") < password.index("display_account_login_pages(d);")
         < password.index("STATE(d) = CON_ACCT_RMOTD;"))
 
-# Registration uses the new account's descriptor. Verification-enabled
-# registration hands off to the email challenge instead of the MOTD.
+# Registration goes directly to the MOTD after the durable creation reply.
 assert new_account.count("display_account_login_pages(") == 1
-assert (new_account.index("if (account_recovery_enabled())")
-        < new_account.index("begin_account_email_verification(reader,")
-        < new_account.index("else")
+assert (new_account.index("Account created successfully!")
         < new_account.index("display_account_login_pages(reader);")
         < new_account.index("STATE(reader) = CON_ACCT_RMOTD;"))
+assert "begin_account_email_verification" not in new_account
 assert 'send_paged_text(recipient, display, LOG_NONE)' in extract_function("actinf.c", "void do_news(")
 
 print("account login news regression passed")

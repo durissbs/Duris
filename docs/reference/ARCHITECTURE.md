@@ -39,9 +39,6 @@ multiplexed in a single `select()` loop. Concurrency includes:
   state, account, character, room and, while playing, that the character is alive)
   before it applies a result. Closing a descriptor cancels its job without waiting for
   bcrypt.
-- One bounded best-effort mail worker (libcurl SMTP) for account password recovery. It is
-  not in the shutdown drain chain, is joined at shutdown (each send is bounded to 10 s
-  connect / 20 s total, no retry), and is disabled unless `MAIL_ENABLED=TRUE`.
 - The main game loop blocking signals (including `SIGSEGV`, handled internally)
   around each iteration so workers cannot interrupt pulse processing.
 

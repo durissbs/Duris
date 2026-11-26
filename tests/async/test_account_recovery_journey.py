@@ -1,18 +1,8 @@
 #!/usr/bin/env python3
-"""End-to-end account password recovery by email regression.
+"""End-to-end password-only registration and staff-only recovery.
 
-Boots the real server twice against a disposable MariaDB schema.  The first
-boot enables recovery (MAIL_ENABLED=TRUE) with a wire-level fake SMTP server on
-loopback: an account is created with an email address, the password prompt
-offers '?', the reset code is read from the captured SMTP DATA, the password is
-changed, the new password logs in, the old one is refused, and a second request
-inside the cooldown produces the uniform text without a second mail.  The
-second boot runs without MAIL_ENABLED and proves the byte-identical legacy
-prompt plus the not-available reply to '?'.
-
-Configuration reaches the server through the subprocess environment, the same
-mechanism the sibling journeys use: no .env is written into the run root, and
-load_env_file's setenv(name, value, 0) lets a real environment variable win.
+Boot with a real loopback SMTP fixture configured and with mail disabled. Neither
+registration nor recovery requests may connect to the relay.
 """
 
 from __future__ import annotations
@@ -514,10 +504,6 @@ def enter_account_details(client: MudClient, password: str, *, name: str = ACCOU
     enter_account_name(client, name)
     client.expect("is this correct?")
     client.send("y")
-    client.expect("email address")
-    client.send(EMAIL)
-    client.expect("is this correct?")
-    client.send("y")
     client.expect("enter your password")
     client.send(password)
     client.expect("Please re-enter the same password to confirm:  ")
@@ -527,19 +513,11 @@ def enter_account_details(client: MudClient, password: str, *, name: str = ACCOU
 
 def create_account(client: MudClient, password: str, smtp: FakeSmtpServer | None = None,
                    *, name: str = ACCOUNT) -> None:
-    """Register and verify the inbox when a local SMTP fixture is supplied."""
+    """Register without collecting an email; old SMTP fixture arguments remain optional."""
     enter_account_details(client, password, name=name)
     client.send("y")
-    if smtp is not None:
-        client.expect("Enter the email verification code (or CANCEL): ")
-        payload = smtp.wait_for_payloads(1, timeout=20)[0]
-        match = re.search(rb"Verification code: ([0-9a-f-]{35})", payload)
-        require(match is not None, "registration did not email an inbox verification code")
-        client.send(match[1].decode())
-        client.expect("Email verified and saved")
-    else:
-        client.expect("PRESS RETURN")
-        client.send("")
+    client.expect("PRESS RETURN")
+    client.send("")
     client.expect("Please select an option")
 
 
@@ -619,62 +597,27 @@ def run_enabled_journey(binary: pathlib.Path) -> None:
             "MAIL_FROM": MAIL_FROM,
         }
         with IsolatedServer(binary, mail_environment) as server:
-            client: MudClient | None = None
+            client = MudClient(server.plain_port)
             try:
-                server.wait_for_status_line(BOOT_ENABLED_LINE)
-
-                client = MudClient(server.plain_port)
-                create_account(client, OLD_PASSWORD, smtp)
-                with smtp.lock:
-                    smtp.payloads.clear()
-                    smtp.connections = 0
+                create_account(client, OLD_PASSWORD)
                 leave_account_menu(client)
-                client = None
-
-                client = MudClient(server.plain_port)
-                request_reset(client)
-                payloads = smtp.wait_for_payloads(1, timeout=20)
-                require(len(payloads) == 1, f"fake SMTP captured {len(payloads)} payloads; expected 1")
-                dashed_code = extract_reset_code(payloads[0])
-                plain_code = dashed_code.replace("-", "")
-
-                client.send(dashed_code)
-                client.expect(CODE_ACCEPTED)
-                client.expect(NEW_PASSWORD_PROMPT)
-                client.send(NEW_PASSWORD)
-                client.expect(VERIFY_PASSWORD_PROMPT)
-                client.send(NEW_PASSWORD)
-                client.expect(PASSWORD_CHANGED)
-                client.expect(ENABLED_PROMPT)
-                login_to_menu(client, NEW_PASSWORD)
-                leave_account_menu(client)
-                client = None
-
-                client = MudClient(server.plain_port)
-                enter_account_name(client)
-                client.expect(ENABLED_PROMPT)
-                client.send(OLD_PASSWORD)
-                client.expect(INVALID_PASSWORD)
-                client.close()
-                client = None
-
-                client = MudClient(server.plain_port)
-                request_reset(client)
-                require_no_new_connection(smtp, expected=1)
-                client.close()
-                client = None
-
-                server.shutdown()
-                require(smtp.connection_count() == 1, "fake SMTP saw more than one connection")
-                require_no_secret_leak(server, (dashed_code, plain_code, EMAIL))
-            except Exception as error:
-                raise AssertionError(
-                    f"{error}\n\n--- isolated server output ---\n{server.server_output()[-12000:]}"
-                    f"\n\n--- isolated runtime logs ---\n{server.runtime_logs()}"
-                ) from error
             finally:
-                if client is not None:
-                    client.close()
+                client.close()
+            client = MudClient(server.plain_port)
+            try:
+                enter_account_name(client)
+                prompt = client.expect(DISABLED_PROMPT)
+                require("reset it by email" not in prompt, "obsolete recovery prompt")
+                client.send("?")
+                client.expect(NOT_AVAILABLE)
+                client.expect(DISABLED_PROMPT)
+                login_to_menu(client, OLD_PASSWORD)
+                leave_account_menu(client)
+            finally:
+                client.close()
+            require_no_new_connection(smtp, expected=0)
+            server.shutdown()
+            require(smtp.connection_count() == 0, "retired SMTP worker connected")
     finally:
         smtp.close()
 
@@ -683,8 +626,6 @@ def run_disabled_journey(binary: pathlib.Path) -> None:
     with IsolatedServer(binary, None) as server:
         client: MudClient | None = None
         try:
-            server.wait_for_status_line(BOOT_DISABLED_LINE)
-
             client = MudClient(server.plain_port)
             create_account(client, OLD_PASSWORD)
             leave_account_menu(client)
@@ -719,4 +660,4 @@ if __name__ == "__main__":
     server_binary = parser.parse_args().server.resolve()
     run_enabled_journey(server_binary)
     run_disabled_journey(server_binary)
-    print("account password recovery by email journey passed")
+    print("password-only registration and staff-only recovery journey passed")

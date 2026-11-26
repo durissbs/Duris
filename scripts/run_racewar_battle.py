@@ -432,10 +432,6 @@ async def account_login(client, account, *, create):
         if not create:
             raise BattleError("The configured staff account does not exist")
         await client.send("y")
-        await client.expect("email address")
-        await client.send(account["email"])
-        await client.expect("is this correct?")
-        await client.send("y")
         await client.expect("enter your password")
         await client.send(account["password"])
         await client.expect("re-enter the same password")

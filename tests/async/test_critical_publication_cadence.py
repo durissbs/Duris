@@ -63,7 +63,6 @@ SPY(collector_catalog_cache_pulse)
 SPY(collector_maintenance_pulse)
 SPY(collector_presence_pulse)
 SPY(collector_service_pulse)
-SPY(account_recovery_pulse)
 SPY(redis_world_recovery_pulse)
 SPY(sql_async_pulse)
 SPY(divine_trade_runtime_retire_pulse)
@@ -144,7 +143,7 @@ static void tick(int number) {
             "persistence_pulse_character_saves", "loads",
             "information_cache_pulse", "help_cache_pulse", "collector_catalog_cache_pulse",
             "collector_maintenance_pulse", "collector_presence_pulse", "collector_service_pulse",
-            "account_recovery_pulse", "redis_world_recovery_pulse"};
+            "redis_world_recovery_pulse"};
         expected.insert(expected.end(), periodic.begin(), periodic.end());
     }
     expected.insert(expected.end(), {"sql_async_pulse", "divine_trade_runtime_retire_pulse",
