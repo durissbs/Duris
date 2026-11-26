@@ -336,8 +336,9 @@ int main()
 	assert(all_echoes == one); // Same active objective, new ID.
 	rerolled[0].zones = { 20, 20 };
 	divine_boon_announce_changes(after, rerolled, now);
-	assert(all_echoes.find("early.") != string::npos);
-	assert(all_echoes.find("have blessed") != string::npos);
+	const auto reroll_echo = all_echoes.substr(one.size());
+	assert(reroll_echo.find("early.") != string::npos);
+	assert(reroll_echo.find("have blessed") != string::npos);
 
 	before = after;
 	cargo.id = 102;

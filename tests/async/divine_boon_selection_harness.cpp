@@ -654,6 +654,21 @@ int main()
 	assert(divine_boon_regenerate_selection(&empty_manual, DIVINE_BOON_SLOTS, 3));
 	assert(empty_manual.slots[0] == only_cargo.slots[0]);
 	assert(empty_manual.revision == only_cargo.revision + 1);
+	const auto exp_manual = std::find_if(empty_manual.slots.begin(), empty_manual.slots.end(),
+					    [](const auto &slot) {
+						    return slot.category == divine_boon_category::experience;
+					    });
+	assert(exp_manual != empty_manual.slots.end());
+	const auto exp_index = static_cast<size_t>(exp_manual - empty_manual.slots.begin());
+	const auto before_manual_reroll = empty_manual;
+	assert(divine_boon_regenerate_selection(&empty_manual, exp_index, 4));
+	assert(empty_manual.slots[exp_index].id != before_manual_reroll.slots[exp_index].id);
+	assert(empty_manual.slots[exp_index].category == divine_boon_category::experience);
+	assert(empty_manual.slots[0] == only_cargo.slots[0]);
+	current_population = {};
+	const auto no_players = empty_manual;
+	assert(!divine_boon_regenerate_selection(&empty_manual, exp_index, 5));
+	assert(empty_manual == no_players);
 
 	// Real game-thread tick must preserve the original prepared choice while
 	// a writer is refusing admission, then publish exactly once.
