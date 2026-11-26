@@ -41,6 +41,8 @@ extern const int top_of_world = 1;
 
 
 static int floor_calls = 0;
+static int floor_room = -1, redirect_room = -1;
+static bool consume_placement = false;
 static int dirty_calls = 0;
 static int act_calls = 0;
 static std::vector<std::string> recorded_messages;
@@ -63,6 +65,20 @@ void obj_to_room(P_obj object, int room)
     object->loc.room = room;
 }
 
+P_obj find_live_object(P_obj object, uint64_t uid)
+{
+    return !consume_placement && object && object->obj_uid == uid ? object : nullptr;
+}
+
+void obj_to_room_dropped(P_obj object, int room)
+{
+    if (consume_placement) {
+        object->loc_p = LOC_NOWHERE;
+        return;
+    }
+    obj_to_room(object, redirect_room >= 0 ? redirect_room : room);
+}
+
 void act(const char *message, int, P_char, P_obj, void *, int)
 {
     ++act_calls;
@@ -79,8 +95,10 @@ int room_light(int, int)
     return 0;
 }
 
-void redis_log_floor_drop(P_obj, int)
+void redis_log_floor_drop(P_obj object, int room)
 {
+    assert(OBJ_ROOM(object) && world[object->loc.room].number == room);
+    floor_room = room;
     ++floor_calls;
 }
 
@@ -96,6 +114,8 @@ static obj_data weapon = {};
 static void reset(bool actor_is_npc = false)
 {
     floor_calls = 0;
+    floor_room = redirect_room = -1;
+    consume_placement = false;
     dirty_calls = 0;
     act_calls = 0;
     recorded_messages.clear();
@@ -128,6 +148,18 @@ int main()
            forced_weapon_drop_result::dropped);
     assert(OBJ_ROOM(&weapon) && weapon.loc.room == 0 && !actor.equipment[WIELD]);
     assert(floor_calls == 1 && dirty_calls == 1 && act_calls == 2);
+
+    // A redirected or consumed placement must not journal a stale location.
+    reset();
+    redirect_room = 1;
+    assert(forced_weapon_drop(&actor, &weapon, forced_weapon_drop_cause::critical_disarm) ==
+           forced_weapon_drop_result::dropped);
+    assert(floor_calls == 1 && floor_room == 200 && weapon.loc.room == 1);
+    reset();
+    consume_placement = true;
+    assert(forced_weapon_drop(&actor, &weapon, forced_weapon_drop_cause::combat_fumble) ==
+           forced_weapon_drop_result::dropped);
+    assert(floor_calls == 0 && act_calls == 0 && dirty_calls == 1);
 
     // A disarm announces nothing itself; the caller does.
     reset();

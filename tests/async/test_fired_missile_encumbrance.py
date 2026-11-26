@@ -27,9 +27,12 @@ handler = "\n".join(extract_function("world/handler.c", signature) for signature
     "void obj_to_obj(",
     "void obj_from_obj_unsaved(",
     "void obj_from_obj(",
-    "void obj_to_room(",
     "void Decay(",
 ))
+water_source = (ROOT / "src/world/handler.c").read_text(encoding="utf-8")
+water_start = water_source.index("namespace\n{\nstruct water_drop_event")
+water_end = water_source.index("/*\n * Take an object from a room", water_start)
+handler += "\n" + water_source[water_start:water_end]
 materialize = extract_function("account/nanny.c", "static P_obj materialize_legacy_newbie_item(")
 decay_callback = extract_function("magic/affects.c", "void event_obj_affect(")
 commands = "\n".join(extract_function("combat/range.c", signature) for signature in (
@@ -197,6 +200,8 @@ void extract_obj(P_obj object, int) {
 }
 static void mark_container_dirty(P_obj) {}
 void artifact_update_location_sql(P_obj) {}
+P_obj find_live_object(P_obj, uint64_t) { std::abort(); }
+void redis_log_floor_drop(P_obj, int) { std::abort(); }
 void writeSavedItem(P_obj) { std::abort(); }
 P_char training_dummy_item_owner(P_obj) { return nullptr; }
 void add_weight(P_obj, int);
