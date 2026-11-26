@@ -23,6 +23,8 @@ ownership is established, use the authorized password administration procedure
 Deploy the matching game and browser changes together and perform a full game
 restart to discard any old in-memory recovery state. Check registration and
 password login on both clients and verify that the account email columns contain
-no addresses. Do not restore old email data from backups. The account-recovery
+no addresses. Take a verified backup after the scrub. Restore qualification
+rejects a recovered database that still contains account email addresses. Use a
+verified post-scrub generation for recovery. The account-recovery
 SMTP settings no longer enable player email; operational backup alert settings
 are separate and must not be removed merely because account recovery is retired.
