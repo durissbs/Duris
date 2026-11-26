@@ -283,6 +283,8 @@ void do_divineboon(P_char ch, char *argument, int /*cmd*/)
 		send_to_char(
 			"Divine state is initializing or requires persistence reconciliation.\r\n",
 			ch);
+		if (const char *failure = divine_boon_runtime_failure())
+			send_to_char(failure, ch);
 		return;
 	}
 	const int64_t now = time(nullptr);
@@ -363,6 +365,12 @@ void do_divineboon(P_char ch, char *argument, int /*cmd*/)
 				return;
 			}
 			slot = static_cast<size_t>(index - 1);
+			if (divine_boon_active(state->slots[slot], now) &&
+			    state->slots[slot].category == divine_boon_category::cargo)
+			{
+				send_to_char("Active Cargo boons are protected until expiry.\r\n", ch);
+				return;
+			}
 		}
 		changed = divine_boon_regenerate_selection(&next, slot, now);
 		if (!changed)
@@ -388,7 +396,9 @@ void do_divineboon(P_char ch, char *argument, int /*cmd*/)
 	{
 		send_to_char(
 			"Usage: divineboon status|pause|resume|replace <slot>|force|history\r\n"
-			"       divineboon regenerate [slot 1-8]\r\n",
+			"       divineboon regenerate [slot 1-8]\r\n"
+			"Active Cargo is preserved. Timers start at the current UTC hour.\r\n"
+			"Remaining duration can be up to one hour shorter than nominal.\r\n",
 			ch);
 		return;
 	}
@@ -415,7 +425,23 @@ bool same_boon(const std::array<divine_boon_slot, DIVINE_BOON_SLOTS> &slots, uin
 			   [id](const divine_boon_slot &slot) { return slot.id == id; });
 }
 
-void announce_divine_event(const divine_boon_slot &slot, bool granted)
+bool same_active_objective(const std::array<divine_boon_slot, DIVINE_BOON_SLOTS> &slots,
+			   const divine_boon_slot &slot, int64_t now)
+{
+	return std::any_of(slots.begin(), slots.end(), [&](const auto &other) {
+		if (!divine_boon_active(other, now) || other.category != slot.category)
+			return false;
+		if (slot.category == divine_boon_category::cargo)
+			return slot.source_port == other.source_port &&
+			       slot.destination_port == other.destination_port;
+		if (slot.category == divine_boon_category::pvp)
+			return true;
+		return divine_boon_shared_target_zone(slot) ==
+		       divine_boon_shared_target_zone(other);
+	});
+}
+
+void announce_divine_event(const divine_boon_slot &slot, bool granted, bool early = false)
 {
 	if (slot.category == divine_boon_category::none)
 		return;
@@ -454,7 +480,8 @@ void announce_divine_event(const divine_boon_slot &slot, bool granted)
 	const std::string message =
 		prefix + (granted ? "have blessed " + zone + "&n with " + reward +
 					    "! Type BOON for details.&n\r\n" :
-				    "have withdrawn " + reward + " from " + zone + "&n.&n\r\n");
+				    "have withdrawn " + reward + " from " + zone +
+				    (early ? "&n early.&n\r\n" : "&n.&n\r\n"));
 	send_to_all(message.c_str());
 }
 } // namespace
@@ -464,12 +491,22 @@ void divine_boon_announce_changes(const std::array<divine_boon_slot, DIVINE_BOON
 				  int64_t now)
 try
 {
-	// Staff replacement is not expiry; a committed new ID is a real grant.
-	for (const auto &old : previous)
-		if (old.id && old.expires_at <= now && !same_boon(current, old.id))
+	// A regeneration replaces an occupied slot in place. Legacy replace
+	// still only removes a slot; do not call that natural expiry.
+	for (size_t index = 0; index < previous.size(); ++index)
+	{
+		const auto &old = previous[index];
+		if (!old.id || same_boon(current, old.id))
+			continue;
+		if (old.expires_at <= now)
 			announce_divine_event(old, false);
+		else if (current[index].id && current[index].category == old.category &&
+			 divine_boon_active(old, now) && !same_active_objective(current, old, now))
+			announce_divine_event(old, false, true);
+	}
 	for (const auto &slot : current)
-		if (slot.id && divine_boon_active(slot, now) && !same_boon(previous, slot.id))
+		if (slot.id && divine_boon_active(slot, now) && !same_boon(previous, slot.id) &&
+		    !same_active_objective(previous, slot, now))
 			announce_divine_event(slot, true);
 }
 catch (const std::bad_alloc &)

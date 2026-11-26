@@ -84,6 +84,34 @@ Graceful shutdown from inside the game: immortal `shutdown` command
 and then removes. Copyover (`copyover` command) execs a fresh binary while
 keeping player connections alive via `copyover.dat`.
 
+### Divine Boon regeneration and persistence recovery
+
+`divineboon regenerate [slot 1-8]` generates immediately using the normal
+eligibility rules and current UTC hour. New EXP/Epic objectives expire eight
+hours after that hour boundary; Cargo/PvP expire four hours after it.
+At :59:59 the remaining durations are therefore 7h 1s and 3h 1s respectively.
+This deliberately retains the existing snapshot and rollback compatibility.
+Use `divineboon status` for the exact expiry. Active Cargo contracts are
+protected from regeneration, including direct slot requests, because invoice
+proof and allowances are keyed by the original boon ID. Wait for expiry.
+The legacy `replace` command retires a boon without replacement and must not
+be used on live Cargo contracts unless loss of existing bonus eligibility
+is explicitly intended.
+
+A terminal Divine persistence conflict or invalid write fences all boon
+admissions; staff status reports the failure and the server error log records
+the expected revision. Do not retry the discarded mutation, delete the row,
+or edit the snapshot. Check for another writer or an unexpected restore,
+preserve the database and inspect the singleton revision with
+`SELECT revision FROM divine_boon_state WHERE state_id=1;` (read-only).
+Resolve the authority conflict and confirm a single writer. Arrange an
+authorized orderly shutdown that drains admitted gameplay/persistence work
+before restarting from the verified database. Boot reloads the authoritative
+boon snapshot and its Cargo books; verify status, expiry, and pending state
+before accepting further staff mutations. If boot cannot load the snapshot,
+keep admissions fenced and investigate the database rather than forcing a
+new state. No automatic live reload is attempted.
+
 ### Executable rollback and callback labels
 
 Divine Boon releases supporting multiple objectives per hour can persist slots

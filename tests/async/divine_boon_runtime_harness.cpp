@@ -315,6 +315,22 @@ int main(int argc, char **argv)
 	for (const auto &entry : recovered.history)
 		assert(entry.zone == 18);
 
+	// A different durable writer wins CAS. Fence admission and discard the
+	// losing mutation; an orderly boot loads the authoritative snapshot.
+	auto winner = recovered;
+	assert(divine_boon_set_paused(&winner, true, 9 * DIVINE_BOON_HOUR));
+	auto loser = recovered;
+	assert(divine_boon_rotate(&loser, 10 * DIVINE_BOON_HOUR, &first));
+	seed(winner);
+	assert(divine_boon_runtime_queue(loser));
+	finish();
+	assert(!divine_boon_runtime_state() && !divine_boon_runtime_pending());
+	assert(divine_boon_runtime_failure() && !divine_boon_runtime_queue(loser));
+	divine_boon_runtime_pulse();
+	assert(stored == winner);
+	assert(divine_boon_runtime_boot(9 * DIVINE_BOON_HOUR));
+	assert(!divine_boon_runtime_failure() && *divine_boon_runtime_state() == winner);
+
 	player_save_worker_shutdown();
 	std::cout
 		<< "Divine Boon runtime: real writer ordering, commit-before-publication, restart and retry passed\n";

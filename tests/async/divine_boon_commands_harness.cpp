@@ -32,6 +32,10 @@ const divine_boon_state *divine_boon_runtime_state()
 {
 	return available ? &authority : nullptr;
 }
+const char *divine_boon_runtime_failure()
+{
+	return nullptr;
+}
 bool divine_boon_runtime_pending()
 {
 	return pending;
@@ -287,6 +291,7 @@ int main()
 	invoke(&player, "regenerate 9", true);
 	invoke(&player, "regenerate 4 junk", true);
 	invoke(&player, "regenerate 1", true);
+	assert(invoke(&player, "regenerate 3", true).find("protected until expiry") != string::npos);
 	assert(writes == old_writes && !pending);
 	invoke(&player, "regenerate 4", true);
 	assert(pending && writes == old_writes + 1 && authority == previous);
@@ -325,6 +330,14 @@ int main()
 	const auto one = all_echoes;
 	divine_boon_announce_changes(after, after, now);
 	assert(all_echoes == one); // Unchanged snapshot never re-announces.
+	auto rerolled = after;
+	rerolled[0].id = 200;
+	divine_boon_announce_changes(after, rerolled, now);
+	assert(all_echoes == one); // Same active objective, new ID.
+	rerolled[0].zones = { 20, 20 };
+	divine_boon_announce_changes(after, rerolled, now);
+	assert(all_echoes.find("early.") != string::npos);
+	assert(all_echoes.find("have blessed") != string::npos);
 
 	before = after;
 	cargo.id = 102;

@@ -361,7 +361,9 @@ bool divine_boon_regenerate(divine_boon_state *state, size_t index, int64_t now,
 	if (!state || !choose || !valid_time(now) || !divine_boon_state_valid(*state) ||
 	    state->mode != divine_boon_mode::divine || state->paused ||
 	    index > DIVINE_BOON_SLOTS || hour(now) < state->last_opportunity ||
-	    (index < DIVINE_BOON_SLOTS && !divine_boon_active(state->slots[index], now)))
+	    (index < DIVINE_BOON_SLOTS &&
+	     (!divine_boon_active(state->slots[index], now) ||
+	      state->slots[index].category == divine_boon_category::cargo)))
 		return false;
 	auto next = *state;
 	expire(next, now, target_zone);
@@ -377,6 +379,9 @@ bool divine_boon_regenerate(divine_boon_state *state, size_t index, int64_t now,
 				continue;
 			auto candidate = next;
 			const auto old = candidate.slots[slot];
+			// Purchase proofs and allowances are keyed by the Cargo boon ID.
+			if (old.category == divine_boon_category::cargo)
+				continue;
 			if (old.id)
 			{
 				remember(candidate, old, now, target_zone);

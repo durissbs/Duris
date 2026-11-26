@@ -107,8 +107,9 @@ bool divine_boon_set_paused(divine_boon_state *state, bool paused, int64_t now,
 bool divine_boon_replace(divine_boon_state *state, size_t slot, int64_t now,
 			 divine_boon_target_resolver target_zone = divine_boon_target_zone);
 // Manual regeneration keeps slot numbers and categories; the sentinel selects
-// all slots, including vacancies. A missing eligible choice preserves an active
-// objective. Publish the complete batch as one revision, never a partial write.
+// all slots, including vacancies. Active Cargo contracts are never regenerated.
+// A missing eligible choice preserves an active objective. Publish the complete
+// batch as one revision; starts and expiries retain UTC-hour alignment.
 using divine_boon_chooser = bool (*)(const divine_boon_state &, int64_t, divine_boon_category,
                                     std::vector<divine_boon_slot> *);
 bool divine_boon_regenerate(divine_boon_state *state, size_t slot, int64_t now,
