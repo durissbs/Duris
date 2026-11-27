@@ -35,6 +35,79 @@ size_t occupied(const divine_boon_state &state)
 	return count;
 }
 
+bool choose_for_regeneration(const divine_boon_state &state, int64_t, divine_boon_category only,
+			     std::vector<divine_boon_slot> *choices)
+{
+	if (only != divine_boon_category::none && only != divine_boon_category::experience)
+		return false;
+	choices->push_back(
+		zone(divine_boon_category::experience, 1000 + state.next_id, 1000 + state.next_id));
+	return true;
+}
+
+void regeneration()
+{
+	auto state = activated();
+	auto exp = zone(divine_boon_category::experience, 10, 10);
+	assert(divine_boon_rotate(&state, H, &exp));
+	divine_boon_slot pvp;
+	pvp.category = divine_boon_category::pvp;
+	assert(divine_boon_rotate(&state, 2 * H, &pvp));
+	const auto before = state;
+	assert(divine_boon_regenerate(&state, 0, 2 * H + 1, choose_for_regeneration));
+	assert(state.revision == before.revision + 1 && state.last_opportunity == 2 * H);
+	assert(state.slots[0].id == before.next_id && state.slots[0].category == exp.category);
+	assert(state.slots[1] == before.slots[1] &&
+	       state.recent.back().objective == before.slots[0]);
+	const auto single = state;
+	assert(!divine_boon_regenerate(&state, 1, 2 * H + 1, choose_for_regeneration));
+	assert(!divine_boon_regenerate(&state, 7, 2 * H + 1, choose_for_regeneration));
+	assert(state == single);
+	assert(divine_boon_regenerate(&state, DIVINE_BOON_SLOTS, 2 * H + 1,
+				      choose_for_regeneration));
+	assert(state.revision == single.revision + 1 && occupied(state) == 4);
+	assert(state.slots[1] == single.slots[1]);
+	// Repeated same-hour staff rerolls must not overflow the bounded history.
+	for (int i = 0; i < 40; ++i)
+		assert(divine_boon_regenerate(&state, 0, 2 * H + 1, choose_for_regeneration));
+	assert(state.history.size() == DIVINE_BOON_HISTORY_MAX);
+	std::vector<uint8_t> bytes;
+	divine_boon_state restored;
+	assert(divine_boon_state_encode(state, &bytes));
+	assert(divine_boon_state_decode(bytes, &restored) && restored == state);
+	// Actual remaining time is hour-aligned, including after a restart.
+	assert(divine_boon_regenerate(&state, 0, 3 * H - 1, choose_for_regeneration));
+	assert(state.slots[0].starts_at == 2 * H && state.slots[0].expires_at == 10 * H);
+	assert(state.slots[0].expires_at - (3 * H - 1) == 7 * H + 1);
+	assert(divine_boon_state_encode(state, &bytes));
+	assert(divine_boon_state_decode(bytes, &restored) && restored == state);
+	assert(divine_boon_set_paused(&state, true, 3 * H - 1));
+	const auto paused = state;
+	assert(!divine_boon_regenerate(&state, 0, 2 * H + 1, choose_for_regeneration));
+	assert(state == paused);
+}
+
+void protected_cargo()
+{
+	auto state = activated();
+	divine_boon_slot cargo;
+	cargo.category = divine_boon_category::cargo;
+	cargo.source_port = cargo.cargo_commodity = cargo.contraband_commodity = 0;
+	cargo.destination_port = 1;
+	assert(divine_boon_rotate(&state, H, &cargo));
+	const auto original = state.slots[0];
+	const auto before = state;
+	assert(!divine_boon_regenerate(&state, 0, H + 1, choose_for_regeneration));
+	assert(state == before);
+	assert(divine_boon_regenerate(&state, DIVINE_BOON_SLOTS, H + 1, choose_for_regeneration));
+	assert(state.slots[0] == original && occupied(state) == 4);
+	assert(state.revision == before.revision + 1);
+	std::vector<uint8_t> bytes;
+	divine_boon_state restored;
+	assert(divine_boon_state_encode(state, &bytes));
+	assert(divine_boon_state_decode(bytes, &restored) && restored.slots[0] == original);
+}
+
 void season_reset()
 {
 	auto state = activated();
@@ -373,6 +446,8 @@ void snapshots_and_invalid_state()
 int main()
 {
 	season_reset();
+	regeneration();
+	protected_cargo();
 	rotation();
 	targets_and_categories();
 	pause_restart_and_clock();

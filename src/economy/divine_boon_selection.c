@@ -297,7 +297,7 @@ bool divine_boon_cargo_eligible(const divine_boon_slot &slot)
 bool divine_boon_select(const divine_boon_state &published, int64_t now,
 			const std::array<divine_boon_population, 2> &population,
 			std::vector<divine_boon_slot> *choices,
-			divine_boon_selection_diagnostic *diagnostic)
+			divine_boon_selection_diagnostic *diagnostic, divine_boon_category only)
 try
 {
 	if (!choices || published.mode != divine_boon_mode::divine || published.paused ||
@@ -354,7 +354,9 @@ try
 						       static_cast<int>(draws.size()) - 1)]);
 		};
 
-		if (experience_boons < DIVINE_BOON_EXPERIENCE_SLOTS && online)
+		if ((only == divine_boon_category::none ||
+		     only == divine_boon_category::experience) &&
+		    experience_boons < DIVINE_BOON_EXPERIENCE_SLOTS && online)
 		{
 			// Draw eligible online players' levels from either side without
 			// replacement, so one level without a fitting zone does not waste
@@ -411,7 +413,8 @@ try
 			for (const auto &side : population)
 				epic_levels.insert(epic_levels.end(), side.recent_levels.begin(),
 						   side.recent_levels.end());
-		if (epic_boons < DIVINE_BOON_EPIC_SLOTS && !epic_levels.empty() &&
+		if ((only == divine_boon_category::none || only == divine_boon_category::epic) &&
+		    epic_boons < DIVINE_BOON_EPIC_SLOTS && !epic_levels.empty() &&
 		    (online || epic_boons == 0))
 		{
 			std::optional<epic_stone_locations> stones;
@@ -453,7 +456,9 @@ try
 		}
 	}
 
-	const bool pvp = population[0].pvp_accounts && population[1].pvp_accounts && !has_pvp;
+	const bool pvp =
+		(only == divine_boon_category::none || only == divine_boon_category::pvp) &&
+		population[0].pvp_accounts && population[1].pvp_accounts && !has_pvp;
 	if (diagnostic)
 		diagnostic->pvp_eligible = pvp;
 	if (pvp)
@@ -462,7 +467,8 @@ try
 		choices->back().category = divine_boon_category::pvp;
 	}
 
-	if (!has_cargo)
+	if ((only == divine_boon_category::none || only == divine_boon_category::cargo) &&
+	    !has_cargo)
 	{
 		// Uniformly random over every source/destination pair in the port list.
 		divine_boon_slot route;
@@ -488,6 +494,24 @@ try
 	if (diagnostic)
 		diagnostic->sampled = true;
 	return !choices->empty();
+}
+catch (const std::bad_alloc &)
+{
+	return false;
+}
+
+bool divine_boon_regenerate_selection(divine_boon_state *state, size_t slot, int64_t now)
+try
+{
+	return divine_boon_regenerate(
+		state, slot, now,
+		[](const divine_boon_state &candidate, int64_t at, divine_boon_category only,
+		   std::vector<divine_boon_slot> *choices)
+		{
+			return divine_boon_select(candidate, at, divine_boon_activity_population(),
+						  choices, nullptr, only);
+		},
+		divine_boon_shared_target_zone);
 }
 catch (const std::bad_alloc &)
 {

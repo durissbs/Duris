@@ -30,7 +30,9 @@ bool divine_boon_selection_bootstrap();
 bool divine_boon_select(const divine_boon_state &state, int64_t now,
 			const std::array<divine_boon_population, 2> &population,
 			std::vector<divine_boon_slot> *choices,
-			divine_boon_selection_diagnostic *diagnostic = nullptr);
+			divine_boon_selection_diagnostic *diagnostic = nullptr,
+			divine_boon_category only = divine_boon_category::none);
+bool divine_boon_regenerate_selection(divine_boon_state *state, size_t slot, int64_t now);
 // Pick one shared live zone from an older one-sided/two-target snapshot;
 // new boons always have identical target fields.
 int32_t divine_boon_shared_target_zone(const divine_boon_slot &slot);

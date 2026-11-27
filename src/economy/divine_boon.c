@@ -65,6 +65,12 @@ void remember(divine_boon_state &state, const divine_boon_slot &slot, int64_t ex
 		else
 			found->expired_at = std::max(found->expired_at, expired_at);
 	}
+	// Manual regeneration can retire more objectives than the hourly cadence.
+	// Evict oldest preferences so a full history cannot block future rotation.
+	while (state.history.size() > DIVINE_BOON_HISTORY_MAX)
+		state.history.erase(std::min_element(state.history.begin(), state.history.end(),
+						     [](const auto &a, const auto &b)
+						     { return a.expired_at < b.expired_at; }));
 }
 
 void expire(divine_boon_state &state, int64_t now,
@@ -347,6 +353,82 @@ bool divine_boon_replace(divine_boon_state *state, size_t index, int64_t now,
 	}
 	next.last_opportunity = std::max(next.last_opportunity, hour(now));
 	return publish(state, std::move(next));
+}
+
+bool divine_boon_regenerate(divine_boon_state *state, size_t index, int64_t now,
+			    divine_boon_chooser choose, divine_boon_target_resolver target_zone)
+{
+	if (!state || !choose || !valid_time(now) || !divine_boon_state_valid(*state) ||
+	    state->mode != divine_boon_mode::divine || state->paused || index > DIVINE_BOON_SLOTS ||
+	    hour(now) < state->last_opportunity ||
+	    (index < DIVINE_BOON_SLOTS &&
+	     (!divine_boon_active(state->slots[index], now) ||
+	      state->slots[index].category == divine_boon_category::cargo)))
+		return false;
+	auto next = *state;
+	expire(next, now, target_zone);
+	next.last_opportunity = hour(now);
+	bool generated = false;
+	// Replace occupied slots before filling vacancies so a newly filled slot
+	// cannot use the category allocation needed for an existing replacement.
+	for (bool occupied : { true, false })
+		for (size_t slot = 0; slot < next.slots.size(); ++slot)
+		{
+			if ((index != DIVINE_BOON_SLOTS && (slot != index || !occupied)) ||
+			    (next.slots[slot].id != 0) != occupied)
+				continue;
+			auto candidate = next;
+			const auto old = candidate.slots[slot];
+			// Purchase proofs and allowances are keyed by the Cargo boon ID.
+			if (old.category == divine_boon_category::cargo)
+				continue;
+			if (old.id)
+			{
+				remember(candidate, old, now, target_zone);
+				candidate.slots[slot] = {};
+			}
+			std::vector<divine_boon_slot> choices;
+			if (!choose(candidate, now, old.category, &choices))
+				continue;
+			for (auto choice : choices)
+			{
+				if ((old.id && choice.category != old.category) || choice.id ||
+				    choice.starts_at || choice.expires_at ||
+				    !valid_objective(choice) ||
+				    candidate.next_id == std::numeric_limits<uint64_t>::max())
+					continue;
+				const auto count = std::count_if(
+					candidate.slots.begin(), candidate.slots.end(),
+					[&](const auto &active)
+					{ return active.category == choice.category; });
+				const size_t cap =
+					choice.category == divine_boon_category::experience ?
+						DIVINE_BOON_EXPERIENCE_SLOTS :
+					choice.category == divine_boon_category::epic ?
+						DIVINE_BOON_EPIC_SLOTS :
+						1;
+				const auto duplicate_target = [&](const auto &active) {
+					return active.id && pve(active.category) &&
+					       target_zone(active) == target_zone(choice);
+				};
+				if (static_cast<size_t>(count) >= cap ||
+				    (pve(choice.category) &&
+				     std::any_of(candidate.slots.begin(), candidate.slots.end(),
+						 duplicate_target)))
+					continue;
+				choice.id = candidate.next_id++;
+				choice.starts_at = hour(now);
+				choice.expires_at =
+					choice.starts_at + divine_boon_duration(choice.category);
+				candidate.slots[slot] = choice;
+				if (!divine_boon_state_valid(candidate))
+					return false;
+				next = std::move(candidate);
+				generated = true;
+				break;
+			}
+		}
+	return generated && publish(state, std::move(next));
 }
 
 bool divine_boon_rotate(divine_boon_state *state, int64_t now, const divine_boon_slot *choices,

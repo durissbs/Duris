@@ -627,6 +627,47 @@ int main()
 	assert(std::count_if(full.slots.begin(), full.slots.end(), [](const auto &slot)
 			     { return slot.category == divine_boon_category::cargo; }) == 1);
 
+	// Real selector regeneration fills available categories without touching
+	// an active Cargo ID or fabricating player-dependent objectives.
+	auto manual = full;
+	const auto manual_before = manual;
+	current_population = {};
+	const auto cargo_slot =
+		std::find_if(manual.slots.begin(), manual.slots.end(), [](const auto &slot)
+			     { return slot.category == divine_boon_category::cargo; });
+	assert(cargo_slot != manual.slots.end());
+	assert(!divine_boon_regenerate_selection(&manual, cargo_slot - manual.slots.begin(),
+						 9 * 3600 + 1));
+	assert(manual == manual_before);
+	auto empty_manual = divine_boon_state{};
+	assert(divine_boon_set_mode(&empty_manual, divine_boon_mode::draining, 0));
+	assert(divine_boon_set_mode(&empty_manual, divine_boon_mode::divine, 0));
+	assert(divine_boon_regenerate_selection(&empty_manual, DIVINE_BOON_SLOTS, 1));
+	const auto only_cargo = empty_manual;
+	assert(std::count_if(only_cargo.slots.begin(), only_cargo.slots.end(),
+			     [](const auto &slot) { return slot.id != 0; }) == 1);
+	assert(only_cargo.slots[0].category == divine_boon_category::cargo);
+	assert(!divine_boon_regenerate_selection(&empty_manual, DIVINE_BOON_SLOTS, 2));
+	assert(empty_manual == only_cargo);
+	current_population[0].levels = { 17 };
+	assert(divine_boon_regenerate_selection(&empty_manual, DIVINE_BOON_SLOTS, 3));
+	assert(empty_manual.slots[0] == only_cargo.slots[0]);
+	assert(empty_manual.revision == only_cargo.revision + 1);
+	const auto exp_manual = std::find_if(
+		empty_manual.slots.begin(), empty_manual.slots.end(),
+		[](const auto &slot) { return slot.category == divine_boon_category::experience; });
+	assert(exp_manual != empty_manual.slots.end());
+	const auto exp_index = static_cast<size_t>(exp_manual - empty_manual.slots.begin());
+	const auto before_manual_reroll = empty_manual;
+	assert(divine_boon_regenerate_selection(&empty_manual, exp_index, 4));
+	assert(empty_manual.slots[exp_index].id != before_manual_reroll.slots[exp_index].id);
+	assert(empty_manual.slots[exp_index].category == divine_boon_category::experience);
+	assert(empty_manual.slots[0] == only_cargo.slots[0]);
+	current_population = {};
+	const auto no_players = empty_manual;
+	assert(!divine_boon_regenerate_selection(&empty_manual, exp_index, 5));
+	assert(empty_manual == no_players);
+
 	// Real game-thread tick must preserve the original prepared choice while
 	// a writer is refusing admission, then publish exactly once.
 	assert(divine_boon_set_mode(&authority, divine_boon_mode::draining, 0));

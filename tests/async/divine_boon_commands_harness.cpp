@@ -32,6 +32,10 @@ const divine_boon_state *divine_boon_runtime_state()
 {
 	return available ? &authority : nullptr;
 }
+const char *divine_boon_runtime_failure()
+{
+	return nullptr;
+}
 bool divine_boon_runtime_pending()
 {
 	return pending;
@@ -71,6 +75,20 @@ int32_t divine_boon_shared_target_zone(const divine_boon_slot &slot)
 bool divine_boon_cargo_eligible(const divine_boon_slot &)
 {
 	return eligible;
+}
+bool divine_boon_regenerate_selection(divine_boon_state *state, size_t slot, int64_t now)
+{
+	return divine_boon_regenerate(state, slot, now,
+				      [](const divine_boon_state &, int64_t,
+					 divine_boon_category only,
+					 std::vector<divine_boon_slot> *choices)
+				      {
+					      if (only != divine_boon_category::pvp)
+						      return false;
+					      choices->emplace_back();
+					      choices->back().category = only;
+					      return true;
+				      });
 }
 void divine_boon_selection_status(P_char) {}
 void divine_boon_selection_pulse(int64_t)
@@ -270,6 +288,19 @@ int main()
 	assert(authority == previous && !pending);
 	invoke(&player, "force", true);
 	assert(forces == 1 && authority == previous);
+	const auto old_writes = writes;
+	invoke(&player, "regenerate 9", true);
+	invoke(&player, "regenerate 4 junk", true);
+	invoke(&player, "regenerate 1", true);
+	assert(invoke(&player, "regenerate 3", true).find("protected until expiry") !=
+	       string::npos);
+	assert(writes == old_writes && !pending);
+	invoke(&player, "regenerate 4", true);
+	assert(pending && writes == old_writes + 1 && authority == previous);
+	assert(queued.slots[3].id == previous.next_id && queued.revision == previous.revision + 1);
+	invoke(&player, "regenerate", true);
+	assert(writes == old_writes + 1);
+	pending = false; // Simulate rejected durable publication for the next checks.
 	admit = false;
 	invoke(&player, "pause", true);
 	assert(!pending && authority == previous);
@@ -301,6 +332,15 @@ int main()
 	const auto one = all_echoes;
 	divine_boon_announce_changes(after, after, now);
 	assert(all_echoes == one); // Unchanged snapshot never re-announces.
+	auto rerolled = after;
+	rerolled[0].id = 200;
+	divine_boon_announce_changes(after, rerolled, now);
+	assert(all_echoes == one); // Same active objective, new ID.
+	rerolled[0].zones = { 20, 20 };
+	divine_boon_announce_changes(after, rerolled, now);
+	const auto reroll_echo = all_echoes.substr(one.size());
+	assert(reroll_echo.find("early.") != string::npos);
+	assert(reroll_echo.find("have blessed") != string::npos);
 
 	before = after;
 	cargo.id = 102;

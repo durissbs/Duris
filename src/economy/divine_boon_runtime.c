@@ -14,6 +14,7 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cstdio>
 #include <limits>
 #include <memory>
 #include <new>
@@ -34,6 +35,7 @@ struct pending_write
 
 divine_boon_state published;
 bool ready = false;
+const char *terminal_failure = nullptr;
 std::shared_ptr<pending_write> pending;
 bool submitted = false;
 std::chrono::steady_clock::time_point retry_at;
@@ -155,6 +157,7 @@ bool divine_boon_runtime_boot(int64_t now)
 	if (divine_boon_reconcile(&loaded, now, divine_boon_shared_target_zone))
 		return stage(loaded, published.revision);
 	ready = true;
+	terminal_failure = nullptr;
 	return true;
 }
 
@@ -198,6 +201,7 @@ void divine_boon_runtime_pulse()
 		const auto previous_slots = published.slots;
 		published = std::move(pending->next);
 		ready = true;
+		terminal_failure = nullptr;
 		pending.reset();
 		if (announce)
 			divine_boon_announce_changes(previous_slots, published.slots,
@@ -215,13 +219,28 @@ void divine_boon_runtime_pulse()
 			retry_at = std::chrono::steady_clock::now() + std::chrono::seconds(5);
 		}
 		else
-			pending.reset(); // Invalid/conflicting authority needs reconciliation.
+		{
+			terminal_failure =
+				result == store_result::conflict ?
+					"Divine persistence conflict; see the runbook before restarting.\r\n" :
+					"Invalid Divine persistence state; see the runbook before restarting.\r\n";
+			fprintf(stderr,
+				"Divine Boon write fenced: result=%d expected_revision=%llu\n",
+				static_cast<int>(result),
+				static_cast<unsigned long long>(pending->expected_revision));
+			pending.reset(); // Fail closed until the operator reconciles authority.
+		}
 	}
 }
 
 const divine_boon_state *divine_boon_runtime_state()
 {
 	return ready ? &published : nullptr;
+}
+
+const char *divine_boon_runtime_failure()
+{
+	return terminal_failure;
 }
 
 bool divine_boon_runtime_pending()

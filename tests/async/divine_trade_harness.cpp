@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <openssl/sha.h>
 
@@ -75,6 +76,47 @@ void reload(divine_trade_book &book)
 
 int main()
 {
+	// A purchase prepared before staff regeneration still settles against the
+	// same cargo ID after publication and snapshot/book restart recovery.
+	divine_boon_state active;
+	assert(divine_boon_set_mode(&active, divine_boon_mode::draining, 0));
+	assert(divine_boon_set_mode(&active, divine_boon_mode::divine, 0));
+	auto offer = route();
+	offer.id = offer.starts_at = offer.expires_at = 0;
+	assert(divine_boon_rotate(&active, DIVINE_BOON_HOUR, &offer));
+	const auto original = active.slots[0];
+	auto admitted = purchase(10001);
+	admitted.at = DIVINE_BOON_HOUR + 1;
+	divine_trade_book uncommitted;
+	assert(divine_trade_prepare_purchase({}, original, admitted, &uncommitted));
+	assert(divine_boon_regenerate(
+		&active, DIVINE_BOON_SLOTS, DIVINE_BOON_HOUR + 2,
+		[](const divine_boon_state &state, int64_t, divine_boon_category only,
+		   std::vector<divine_boon_slot> *choices)
+		{
+			if (only == divine_boon_category::cargo)
+				std::abort(); // A live contract must never reach the chooser.
+			divine_boon_slot exp;
+			exp.category = divine_boon_category::experience;
+			exp.zones = { static_cast<int32_t>(100 + state.next_id),
+				      static_cast<int32_t>(100 + state.next_id) };
+			choices->push_back(exp);
+			return true;
+		}));
+	assert(active.slots[0] == original);
+	std::vector<uint8_t> saved;
+	divine_boon_state recovered;
+	assert(divine_boon_state_encode(active, &saved));
+	assert(divine_boon_state_decode(saved, &recovered));
+	reload(uncommitted);
+	auto delivery = removal(1, 1, 100);
+	delivery.at = DIVINE_BOON_HOUR + 3;
+	divine_trade_book settled;
+	divine_trade_consumption reward;
+	assert(divine_trade_prepare_removal(uncommitted, recovered.slots[0], delivery, &settled,
+					    &reward));
+	assert(reward.qualifying_quantity == 1 && reward.qualifying_basis == 100);
+
 	const auto boon = route();
 	divine_trade_book blank, book;
 	assert(divine_trade_book_valid(blank));
