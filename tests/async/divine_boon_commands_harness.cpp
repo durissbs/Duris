@@ -292,7 +292,8 @@ int main()
 	invoke(&player, "regenerate 9", true);
 	invoke(&player, "regenerate 4 junk", true);
 	invoke(&player, "regenerate 1", true);
-	assert(invoke(&player, "regenerate 3", true).find("protected until expiry") != string::npos);
+	assert(invoke(&player, "regenerate 3", true).find("protected until expiry") !=
+	       string::npos);
 	assert(writes == old_writes && !pending);
 	invoke(&player, "regenerate 4", true);
 	assert(pending && writes == old_writes + 1 && authority == previous);

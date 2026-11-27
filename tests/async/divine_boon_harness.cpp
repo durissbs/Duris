@@ -57,7 +57,8 @@ void regeneration()
 	assert(divine_boon_regenerate(&state, 0, 2 * H + 1, choose_for_regeneration));
 	assert(state.revision == before.revision + 1 && state.last_opportunity == 2 * H);
 	assert(state.slots[0].id == before.next_id && state.slots[0].category == exp.category);
-	assert(state.slots[1] == before.slots[1] && state.recent.back().objective == before.slots[0]);
+	assert(state.slots[1] == before.slots[1] &&
+	       state.recent.back().objective == before.slots[0]);
 	const auto single = state;
 	assert(!divine_boon_regenerate(&state, 1, 2 * H + 1, choose_for_regeneration));
 	assert(!divine_boon_regenerate(&state, 7, 2 * H + 1, choose_for_regeneration));
