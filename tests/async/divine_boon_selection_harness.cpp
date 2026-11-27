@@ -632,10 +632,9 @@ int main()
 	auto manual = full;
 	const auto manual_before = manual;
 	current_population = {};
-	const auto cargo_slot = std::find_if(manual.slots.begin(), manual.slots.end(),
-					    [](const auto &slot) {
-						    return slot.category == divine_boon_category::cargo;
-					    });
+	const auto cargo_slot =
+		std::find_if(manual.slots.begin(), manual.slots.end(), [](const auto &slot)
+			     { return slot.category == divine_boon_category::cargo; });
 	assert(cargo_slot != manual.slots.end());
 	assert(!divine_boon_regenerate_selection(&manual, cargo_slot - manual.slots.begin(),
 						 9 * 3600 + 1));
@@ -654,10 +653,9 @@ int main()
 	assert(divine_boon_regenerate_selection(&empty_manual, DIVINE_BOON_SLOTS, 3));
 	assert(empty_manual.slots[0] == only_cargo.slots[0]);
 	assert(empty_manual.revision == only_cargo.revision + 1);
-	const auto exp_manual = std::find_if(empty_manual.slots.begin(), empty_manual.slots.end(),
-					    [](const auto &slot) {
-						    return slot.category == divine_boon_category::experience;
-					    });
+	const auto exp_manual = std::find_if(
+		empty_manual.slots.begin(), empty_manual.slots.end(),
+		[](const auto &slot) { return slot.category == divine_boon_category::experience; });
 	assert(exp_manual != empty_manual.slots.end());
 	const auto exp_index = static_cast<size_t>(exp_manual - empty_manual.slots.begin());
 	const auto before_manual_reroll = empty_manual;

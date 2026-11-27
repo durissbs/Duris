@@ -354,7 +354,8 @@ try
 						       static_cast<int>(draws.size()) - 1)]);
 		};
 
-		if ((only == divine_boon_category::none || only == divine_boon_category::experience) &&
+		if ((only == divine_boon_category::none ||
+		     only == divine_boon_category::experience) &&
 		    experience_boons < DIVINE_BOON_EXPERIENCE_SLOTS && online)
 		{
 			// Draw eligible online players' levels from either side without
@@ -455,8 +456,9 @@ try
 		}
 	}
 
-	const bool pvp = (only == divine_boon_category::none || only == divine_boon_category::pvp) &&
-			 population[0].pvp_accounts && population[1].pvp_accounts && !has_pvp;
+	const bool pvp =
+		(only == divine_boon_category::none || only == divine_boon_category::pvp) &&
+		population[0].pvp_accounts && population[1].pvp_accounts && !has_pvp;
 	if (diagnostic)
 		diagnostic->pvp_eligible = pvp;
 	if (pvp)
@@ -465,7 +467,8 @@ try
 		choices->back().category = divine_boon_category::pvp;
 	}
 
-	if ((only == divine_boon_category::none || only == divine_boon_category::cargo) && !has_cargo)
+	if ((only == divine_boon_category::none || only == divine_boon_category::cargo) &&
+	    !has_cargo)
 	{
 		// Uniformly random over every source/destination pair in the port list.
 		divine_boon_slot route;
@@ -503,7 +506,8 @@ try
 	return divine_boon_regenerate(
 		state, slot, now,
 		[](const divine_boon_state &candidate, int64_t at, divine_boon_category only,
-		   std::vector<divine_boon_slot> *choices) {
+		   std::vector<divine_boon_slot> *choices)
+		{
 			return divine_boon_select(candidate, at, divine_boon_activity_population(),
 						  choices, nullptr, only);
 		},

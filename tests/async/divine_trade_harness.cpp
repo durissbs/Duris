@@ -92,7 +92,8 @@ int main()
 	assert(divine_boon_regenerate(
 		&active, DIVINE_BOON_SLOTS, DIVINE_BOON_HOUR + 2,
 		[](const divine_boon_state &state, int64_t, divine_boon_category only,
-		   std::vector<divine_boon_slot> *choices) {
+		   std::vector<divine_boon_slot> *choices)
+		{
 			if (only == divine_boon_category::cargo)
 				std::abort(); // A live contract must never reach the chooser.
 			divine_boon_slot exp;
@@ -112,8 +113,8 @@ int main()
 	delivery.at = DIVINE_BOON_HOUR + 3;
 	divine_trade_book settled;
 	divine_trade_consumption reward;
-	assert(divine_trade_prepare_removal(uncommitted, recovered.slots[0], delivery,
-					   &settled, &reward));
+	assert(divine_trade_prepare_removal(uncommitted, recovered.slots[0], delivery, &settled,
+					    &reward));
 	assert(reward.qualifying_quantity == 1 && reward.qualifying_basis == 100);
 
 	const auto boon = route();

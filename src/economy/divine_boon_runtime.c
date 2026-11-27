@@ -220,10 +220,12 @@ void divine_boon_runtime_pulse()
 		}
 		else
 		{
-			terminal_failure = result == store_result::conflict ?
-				"Divine persistence conflict; see the runbook before restarting.\r\n" :
-				"Invalid Divine persistence state; see the runbook before restarting.\r\n";
-			fprintf(stderr, "Divine Boon write fenced: result=%d expected_revision=%llu\n",
+			terminal_failure =
+				result == store_result::conflict ?
+					"Divine persistence conflict; see the runbook before restarting.\r\n" :
+					"Invalid Divine persistence state; see the runbook before restarting.\r\n";
+			fprintf(stderr,
+				"Divine Boon write fenced: result=%d expected_revision=%llu\n",
 				static_cast<int>(result),
 				static_cast<unsigned long long>(pending->expected_revision));
 			pending.reset(); // Fail closed until the operator reconciles authority.

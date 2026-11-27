@@ -78,16 +78,17 @@ bool divine_boon_cargo_eligible(const divine_boon_slot &)
 }
 bool divine_boon_regenerate_selection(divine_boon_state *state, size_t slot, int64_t now)
 {
-	return divine_boon_regenerate(
-		state, slot, now,
-		[](const divine_boon_state &, int64_t, divine_boon_category only,
-		   std::vector<divine_boon_slot> *choices) {
-			if (only != divine_boon_category::pvp)
-				return false;
-			choices->emplace_back();
-			choices->back().category = only;
-			return true;
-		});
+	return divine_boon_regenerate(state, slot, now,
+				      [](const divine_boon_state &, int64_t,
+					 divine_boon_category only,
+					 std::vector<divine_boon_slot> *choices)
+				      {
+					      if (only != divine_boon_category::pvp)
+						      return false;
+					      choices->emplace_back();
+					      choices->back().category = only;
+					      return true;
+				      });
 }
 void divine_boon_selection_status(P_char) {}
 void divine_boon_selection_pulse(int64_t)

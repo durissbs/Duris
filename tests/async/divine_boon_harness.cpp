@@ -35,13 +35,13 @@ size_t occupied(const divine_boon_state &state)
 	return count;
 }
 
-bool choose_for_regeneration(const divine_boon_state &state, int64_t,
-                             divine_boon_category only, std::vector<divine_boon_slot> *choices)
+bool choose_for_regeneration(const divine_boon_state &state, int64_t, divine_boon_category only,
+			     std::vector<divine_boon_slot> *choices)
 {
 	if (only != divine_boon_category::none && only != divine_boon_category::experience)
 		return false;
-	choices->push_back(zone(divine_boon_category::experience, 1000 + state.next_id,
-				1000 + state.next_id));
+	choices->push_back(
+		zone(divine_boon_category::experience, 1000 + state.next_id, 1000 + state.next_id));
 	return true;
 }
 
@@ -98,8 +98,7 @@ void protected_cargo()
 	const auto before = state;
 	assert(!divine_boon_regenerate(&state, 0, H + 1, choose_for_regeneration));
 	assert(state == before);
-	assert(divine_boon_regenerate(&state, DIVINE_BOON_SLOTS, H + 1,
-				      choose_for_regeneration));
+	assert(divine_boon_regenerate(&state, DIVINE_BOON_SLOTS, H + 1, choose_for_regeneration));
 	assert(state.slots[0] == original && occupied(state) == 4);
 	assert(state.revision == before.revision + 1);
 	std::vector<uint8_t> bytes;
