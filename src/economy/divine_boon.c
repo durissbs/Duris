@@ -407,8 +407,7 @@ bool divine_boon_regenerate(divine_boon_state *state, size_t index, int64_t now,
 					choice.category == divine_boon_category::epic ?
 						DIVINE_BOON_EPIC_SLOTS :
 						1;
-				const auto duplicate_target = [&](const auto &active)
-				{
+				const auto duplicate_target = [&](const auto &active) {
 					return active.id && pve(active.category) &&
 					       target_zone(active) == target_zone(choice);
 				};
